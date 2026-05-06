@@ -51,8 +51,8 @@ fun WorkScreen(
     onExit: () -> Unit,
     onNeededAppSelected: (String) -> Unit
 ) {
-    var exitConfirmStep by remember { mutableStateOf(0) }
-    var finishConfirmStep by remember { mutableStateOf(0) }
+    var showExitConfirm by remember { mutableStateOf(false) }
+    var showFinishConfirm by remember { mutableStateOf(false) }
     var neededMenuOpen by remember { mutableStateOf(false) }
     var nowMillis by remember(activeWork.taskId, activeWork.startedAtMillis) { mutableStateOf(System.currentTimeMillis()) }
     val activeMillis = WorkSessionClock.activeMillisAt(activeWork, nowMillis)
@@ -66,7 +66,7 @@ fun WorkScreen(
         }
     }
 
-    BackHandler { exitConfirmStep = 1 }
+    BackHandler { showExitConfirm = true }
 
     Box(
         modifier = Modifier
@@ -135,14 +135,14 @@ fun WorkScreen(
                         Text("Pause", fontWeight = FontWeight.Bold)
                     }
                     Button(
-                        onClick = { finishConfirmStep = 1 },
+                        onClick = { showFinishConfirm = true },
                         modifier = Modifier.weight(1f).height(54.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = UiTokens.GoogleGreen)
                     ) {
                         Text("Finish", fontWeight = FontWeight.Bold)
                     }
                     Button(
-                        onClick = { exitConfirmStep = 1 },
+                        onClick = { showExitConfirm = true },
                         modifier = Modifier.weight(1f).height(54.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = UiTokens.RedChipText)
                     ) {
@@ -153,80 +153,62 @@ fun WorkScreen(
         }
     }
 
-    if (finishConfirmStep > 0) {
+    if (showFinishConfirm) {
         AlertDialog(
-            onDismissRequest = { finishConfirmStep = 0 },
+            onDismissRequest = { showFinishConfirm = false },
             title = {
                 Text(
-                    if (finishConfirmStep == 1) "Finish this task?" else "Record actual focus?",
+                    "Finish this task?",
                     fontWeight = FontWeight.Bold
                 )
             },
             text = {
-                Text(
-                    if (finishConfirmStep == 1) {
-                        "Finishing will stop the timer and record the active focus time."
-                    } else {
-                        "The task will be marked finished and move below the divider."
-                    }
-                )
+                Text("This will stop the timer and record your actual focus time.")
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        if (finishConfirmStep == 1) {
-                            finishConfirmStep = 2
-                        } else {
-                            onFinish()
-                        }
+                        showFinishConfirm = false
+                        onFinish()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = UiTokens.GoogleGreen)
                 ) {
-                    Text(if (finishConfirmStep == 1) "Continue" else "Finish")
+                    Text("Finish")
                 }
             },
             dismissButton = {
-                OutlinedButton(onClick = { finishConfirmStep = 0 }) {
+                OutlinedButton(onClick = { showFinishConfirm = false }) {
                     Text("Cancel")
                 }
             }
         )
     }
 
-    if (exitConfirmStep > 0) {
+    if (showExitConfirm) {
         AlertDialog(
-            onDismissRequest = { exitConfirmStep = 0 },
+            onDismissRequest = { showExitConfirm = false },
             title = {
                 Text(
-                    if (exitConfirmStep == 1) "Leave this focus block?" else "Exit without saving time?",
+                    "Exit focus block?",
                     fontWeight = FontWeight.Bold
                 )
             },
             text = {
-                Text(
-                    if (exitConfirmStep == 1) {
-                        "Exiting will stop the current timer and return to the main page. Your original plan will stay unchanged."
-                    } else {
-                        "No actual focus time will be recorded for this attempt."
-                    }
-                )
+                Text("This stops the current timer without changing the plan or recording focus time.")
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        if (exitConfirmStep == 1) {
-                            exitConfirmStep = 2
-                        } else {
-                            onExit()
-                        }
+                        showExitConfirm = false
+                        onExit()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = UiTokens.RedChipText)
                 ) {
-                    Text(if (exitConfirmStep == 1) "Continue" else "Exit")
+                    Text("Exit")
                 }
             },
             dismissButton = {
-                OutlinedButton(onClick = { exitConfirmStep = 0 }) {
+                OutlinedButton(onClick = { showExitConfirm = false }) {
                     Text("Cancel")
                 }
             }
