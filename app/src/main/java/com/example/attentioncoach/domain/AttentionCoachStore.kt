@@ -48,6 +48,24 @@ class AttentionCoachStore(seedTasks: List<PlannedTask>) {
         }
     }
 
+    fun toggleTaskCompletion(taskId: Long) {
+        val task = tasksById[taskId] ?: return
+        tasksById[taskId] = if (task.status == TaskStatus.FINISHED || task.status == TaskStatus.REVIEWED) {
+            task.copy(
+                status = TaskStatus.PLANNED,
+                actualFocusMinutes = 0,
+                actualCompletion = "",
+                mismatchReason = "",
+                nextAdjustment = ""
+            )
+        } else {
+            task.copy(
+                status = TaskStatus.FINISHED,
+                actualFocusMinutes = 0
+            )
+        }
+    }
+
     fun saveReview(
         taskId: Long,
         actualCompletion: String,

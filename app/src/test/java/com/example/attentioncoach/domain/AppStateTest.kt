@@ -125,6 +125,38 @@ class AppStateTest {
     }
 
     @Test
+    fun toggleCompletionMarksPlannedTaskFinishedWithoutActualFocus() {
+        val store = AttentionCoachStore(DemoTaskRepository.seed())
+
+        store.toggleTaskCompletion(1L)
+
+        val task = store.taskById(1L)
+        assertEquals(TaskStatus.FINISHED, task?.status)
+        assertEquals(0, task?.actualFocusMinutes)
+    }
+
+    @Test
+    fun toggleCompletionAgainReturnsTaskToPlannedAndClearsReviewFields() {
+        val store = AttentionCoachStore(DemoTaskRepository.seed())
+
+        store.toggleTaskCompletion(1L)
+        store.saveReview(
+            taskId = 1L,
+            actualCompletion = "Done",
+            mismatchReason = "Reason",
+            nextAdjustment = "Next"
+        )
+        store.toggleTaskCompletion(1L)
+
+        val task = store.taskById(1L)
+        assertEquals(TaskStatus.PLANNED, task?.status)
+        assertEquals(0, task?.actualFocusMinutes)
+        assertEquals("", task?.actualCompletion)
+        assertEquals("", task?.mismatchReason)
+        assertEquals("", task?.nextAdjustment)
+    }
+
+    @Test
     fun pausedTimeIsExcludedFromFinishedActualFocus() {
         val store = AttentionCoachStore(DemoTaskRepository.seed())
 

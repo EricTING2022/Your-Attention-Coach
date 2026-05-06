@@ -23,6 +23,16 @@ object TaskGrouper {
     }
 }
 
+object TaskListSorter {
+    fun sortForToday(tasks: List<PlannedTask>): List<PlannedTask> {
+        return tasks.sortedWith(
+            compareByDescending<PlannedTask> { it.status == TaskStatus.PAUSED }
+                .thenBy { it.status == TaskStatus.FINISHED || it.status == TaskStatus.REVIEWED }
+                .thenBy { it.id }
+        )
+    }
+}
+
 object ReviewAvailability {
     fun canReview(status: TaskStatus): Boolean {
         return status == TaskStatus.FINISHED || status == TaskStatus.REVIEWED

@@ -17,7 +17,7 @@ class PlanningRulesTest {
     }
 
     @Test
-    fun taskGroupingKeepsPausedOpenTasksFirstAndReviewedBelowDivider() {
+    fun taskListKeepsPausedFirstAndCompletedTasksLastWithoutDividerGroups() {
         val tasks = listOf(
             task(id = 1, title = "Design", status = TaskStatus.PLANNED),
             task(id = 2, title = "Reviewed notes", status = TaskStatus.REVIEWED),
@@ -25,10 +25,9 @@ class PlanningRulesTest {
             task(id = 4, title = "Finished report", status = TaskStatus.FINISHED)
         )
 
-        val grouped = TaskGrouper.group(tasks)
+        val sorted = TaskListSorter.sortForToday(tasks)
 
-        assertEquals(listOf(3L, 1L), grouped.open.map { it.id })
-        assertEquals(listOf(2L, 4L), grouped.completed.map { it.id })
+        assertEquals(listOf(3L, 1L, 2L, 4L), sorted.map { it.id })
     }
 
     @Test
