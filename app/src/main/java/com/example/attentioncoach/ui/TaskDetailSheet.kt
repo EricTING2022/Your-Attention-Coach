@@ -252,9 +252,9 @@ private fun PlanPage(
     onStartWork: (Long) -> Unit
 ) {
     var target by remember(task.id) { mutableStateOf(task.target) }
+    var startTime by remember(task.id) { mutableStateOf(task.startTime) }
     var duration by remember(task.id) { mutableStateOf(task.durationMinutes.toString()) }
     var priority by remember(task.id) { mutableStateOf(task.priority) }
-    var note by remember(task.id) { mutableStateOf(task.planningNote) }
     var priorityOpen by remember { mutableStateOf(false) }
     val priorityScroll = rememberScrollState()
 
@@ -267,8 +267,6 @@ private fun PlanPage(
                 modifier = Modifier.fillMaxWidth()
             )
         }
-        FieldLabel("Targets", UiTokens.GoogleBlue)
-        OutlinedTextField(value = target, onValueChange = { target = it }, minLines = 3, modifier = Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(Modifier.weight(1f)) {
                 FieldLabel("Duration", UiTokens.LowChipText)
@@ -317,17 +315,17 @@ private fun PlanPage(
                 }
             }
         }
-        FieldLabel("Planning note", UiTokens.UrgentChipText)
-        OutlinedTextField(value = note, onValueChange = { note = it }, minLines = 4, modifier = Modifier.fillMaxWidth())
+        FieldLabel("Targets", UiTokens.GoogleBlue)
+        OutlinedTextField(value = target, onValueChange = { target = it }, minLines = 6, modifier = Modifier.fillMaxWidth())
         Button(
             onClick = {
                 val updated = task.copy(
                     title = if (isCreateMode) title.trim().ifBlank { "Untitled task" } else task.title,
                     target = target,
+                    startTime = startTime,
                     durationMinutes = duration.toIntOrNull()?.coerceAtLeast(1) ?: task.durationMinutes,
                     priority = priority,
-                    status = if (isCreateMode) TaskStatus.PLANNED else task.status,
-                    planningNote = note
+                    status = if (isCreateMode) TaskStatus.PLANNED else task.status
                 )
                 if (isCreateMode) {
                     onCreateTask(updated)

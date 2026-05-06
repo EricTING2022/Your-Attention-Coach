@@ -103,8 +103,7 @@ class PlanningRulesTest {
             target = "Target",
             durationMinutes = durationMinutes,
             priority = Priority.IMPORTANT,
-            status = status,
-            planningNote = ""
+            status = status
         )
     }
 }

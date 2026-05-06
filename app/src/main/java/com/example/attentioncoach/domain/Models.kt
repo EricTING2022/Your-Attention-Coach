@@ -1,16 +1,17 @@
 package com.example.attentioncoach.domain
 
 import java.time.LocalDate
+import java.time.LocalTime
 
 data class PlannedTask(
     val id: Long,
     val date: LocalDate,
     val title: String,
     val target: String,
+    val startTime: LocalTime? = null,
     val durationMinutes: Int,
     val priority: Priority,
     val status: TaskStatus,
-    val planningNote: String,
     val actualFocusMinutes: Int = 0,
     val actualCompletion: String = "",
     val mismatchReason: String = "",

@@ -1,6 +1,7 @@
 package com.example.attentioncoach.domain
 
 import java.time.LocalDate
+import java.time.LocalTime
 
 class AttentionCoachStore(seedTasks: List<PlannedTask>) {
     private val tasksById = seedTasks.associateBy { it.id }.toMutableMap()
@@ -23,19 +24,19 @@ class AttentionCoachStore(seedTasks: List<PlannedTask>) {
         date: LocalDate,
         title: String,
         target: String = "",
+        startTime: LocalTime? = null,
         durationMinutes: Int = 30,
-        priority: Priority = Priority.IMPORTANT,
-        planningNote: String = ""
+        priority: Priority = Priority.IMPORTANT
     ): PlannedTask {
         val task = PlannedTask(
             id = nextTaskId++,
             date = date,
             title = title,
             target = target,
+            startTime = startTime,
             durationMinutes = durationMinutes,
             priority = priority,
-            status = TaskStatus.PLANNED,
-            planningNote = planningNote
+            status = TaskStatus.PLANNED
         )
         tasksById[task.id] = task
         return task
@@ -84,16 +85,16 @@ class AttentionCoachStore(seedTasks: List<PlannedTask>) {
     fun updatePlan(
         taskId: Long,
         target: String,
+        startTime: LocalTime?,
         durationMinutes: Int,
-        priority: Priority,
-        planningNote: String
+        priority: Priority
     ) {
         val task = tasksById[taskId] ?: return
         tasksById[taskId] = task.copy(
             target = target,
+            startTime = startTime,
             durationMinutes = durationMinutes,
-            priority = priority,
-            planningNote = planningNote
+            priority = priority
         )
     }
 

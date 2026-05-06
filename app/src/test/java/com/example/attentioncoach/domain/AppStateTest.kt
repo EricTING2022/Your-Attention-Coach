@@ -6,6 +6,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
+import java.time.LocalTime
 
 class AppStateTest {
     @Test
@@ -52,22 +53,22 @@ class AppStateTest {
     }
 
     @Test
-    fun updatePlanFieldsChangesOnlyEditablePlanValues() {
+    fun updatePlanStoresScheduleAndEditablePlanValues() {
         val store = AttentionCoachStore(DemoTaskRepository.seed())
 
         store.updatePlan(
             taskId = 1L,
             target = "New target",
+            startTime = LocalTime.of(9, 30),
             durationMinutes = 30,
-            priority = Priority.URGENT,
-            planningNote = "New note"
+            priority = Priority.URGENT
         )
 
         val task = store.taskById(1L)
         assertEquals("New target", task?.target)
+        assertEquals(LocalTime.of(9, 30), task?.startTime)
         assertEquals(30, task?.durationMinutes)
         assertEquals(Priority.URGENT, task?.priority)
-        assertEquals("New note", task?.planningNote)
         assertEquals(TaskStatus.PLANNED, task?.status)
     }
 

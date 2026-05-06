@@ -159,8 +159,7 @@ fun AttentionCoachApp(
                     target = "",
                     durationMinutes = 30,
                     priority = Priority.IMPORTANT,
-                    status = TaskStatus.PLANNED,
-                    planningNote = ""
+                    status = TaskStatus.PLANNED
                 )
             },
             onSeedDemo = {
