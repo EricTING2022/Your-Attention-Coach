@@ -7,6 +7,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -43,12 +45,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.attentioncoach.domain.DatePickerOptions
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.Priority
 import com.example.attentioncoach.domain.SummaryCalculator
 import com.example.attentioncoach.domain.TaskGrouper
 import com.example.attentioncoach.domain.WeekTimeline
 import java.time.LocalDate
+import java.time.Month
 import java.time.YearMonth
 
 @Composable
@@ -341,8 +345,11 @@ private fun DatePickerSheet(
                 if (wheelMode) {
                     YearMonthWheel(
                         pickerMonth = pickerMonth,
-                        onYearMonthSelected = {
-                            pickerMonth = it
+                        onYearSelected = {
+                            pickerMonth = DatePickerOptions.withYear(pickerMonth, it)
+                        },
+                        onMonthSelected = {
+                            pickerMonth = DatePickerOptions.withMonth(pickerMonth, it)
                             wheelMode = false
                         }
                     )
@@ -409,42 +416,79 @@ private fun MonthGrid(
 @Composable
 private fun YearMonthWheel(
     pickerMonth: YearMonth,
-    onYearMonthSelected: (YearMonth) -> Unit
+    onYearSelected: (Int) -> Unit,
+    onMonthSelected: (Month) -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxSize(),
-        horizontalArrangement = Arrangement.spacedBy(18.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-            (-3..3).forEach { offset ->
-                val year = pickerMonth.year + offset
-                Text(
-                    "$year",
-                    fontSize = if (offset == 0) 28.sp else 22.sp,
-                    color = if (offset == 0) UiTokens.Ink else UiTokens.InkSoft,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .clickable { onYearMonthSelected(YearMonth.of(year, pickerMonth.month)) }
-                        .padding(8.dp)
-                )
+    val yearState = rememberLazyListState(
+        initialFirstVisibleItemIndex = DatePickerOptions.years.indexOf(pickerMonth.year).coerceAtLeast(0)
+    )
+    val monthState = rememberLazyListState(initialFirstVisibleItemIndex = pickerMonth.monthValue - 1)
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .fillMaxWidth()
+                .height(54.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(UiTokens.Page)
+        )
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            LazyColumn(
+                state = yearState,
+                modifier = Modifier.weight(1f).fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                contentPadding = PaddingValues(vertical = 172.dp)
+            ) {
+                items(DatePickerOptions.years) { year ->
+                    WheelOption(
+                        text = "$year",
+                        selected = year == pickerMonth.year,
+                        onClick = { onYearSelected(year) }
+                    )
+                }
             }
-        }
-        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-            (-3..3).forEach { offset ->
-                val month = pickerMonth.plusMonths(offset.toLong()).month
-                Text(
-                    month.name.lowercase().replaceFirstChar { it.uppercase() },
-                    fontSize = if (offset == 0) 28.sp else 22.sp,
-                    color = if (offset == 0) UiTokens.Ink else UiTokens.InkSoft,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .clickable { onYearMonthSelected(YearMonth.of(pickerMonth.year, month)) }
-                        .padding(8.dp)
-                )
+            LazyColumn(
+                state = monthState,
+                modifier = Modifier.weight(1f).fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                contentPadding = PaddingValues(vertical = 172.dp)
+            ) {
+                items(DatePickerOptions.months) { month ->
+                    WheelOption(
+                        text = month.displayName(),
+                        selected = month == pickerMonth.month,
+                        onClick = { onMonthSelected(month) }
+                    )
+                }
             }
         }
     }
+}
+
+@Composable
+private fun WheelOption(text: String, selected: Boolean, onClick: () -> Unit) {
+    Text(
+        text = text,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Ellipsis,
+        fontSize = if (selected) 24.sp else 21.sp,
+        color = if (selected) UiTokens.Ink else UiTokens.InkSoft.copy(alpha = 0.58f),
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(42.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp)
+    )
+}
+
+private fun Month.displayName(): String {
+    return name.lowercase().replaceFirstChar { it.uppercase() }
 }
