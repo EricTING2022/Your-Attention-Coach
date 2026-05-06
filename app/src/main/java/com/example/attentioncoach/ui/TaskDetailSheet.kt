@@ -18,7 +18,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -40,7 +39,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -50,6 +48,7 @@ import com.example.attentioncoach.domain.Priority
 import com.example.attentioncoach.domain.ReviewAvailability
 import com.example.attentioncoach.domain.TaskStatus
 import kotlinx.coroutines.launch
+import java.time.LocalTime
 
 @Composable
 fun TaskDetailSheet(
@@ -253,9 +252,10 @@ private fun PlanPage(
 ) {
     var target by remember(task.id) { mutableStateOf(task.target) }
     var startTime by remember(task.id) { mutableStateOf(task.startTime) }
-    var duration by remember(task.id) { mutableStateOf(task.durationMinutes.toString()) }
+    var duration by remember(task.id) { mutableStateOf(task.durationMinutes) }
     var priority by remember(task.id) { mutableStateOf(task.priority) }
     var priorityOpen by remember { mutableStateOf(false) }
+    var showScheduleEditor by remember { mutableStateOf(false) }
     val priorityScroll = rememberScrollState()
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -270,12 +270,10 @@ private fun PlanPage(
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(Modifier.weight(1f)) {
                 FieldLabel("Duration", UiTokens.LowChipText)
-                OutlinedTextField(
-                    value = duration,
-                    onValueChange = { duration = it.filter(Char::isDigit) },
-                    suffix = { Text("min", color = UiTokens.LowChipText, fontWeight = FontWeight.Bold) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
+                ScheduleField(
+                    startTime = startTime,
+                    durationMinutes = duration,
+                    onClick = { showScheduleEditor = true }
                 )
             }
             Column(Modifier.weight(1f)) {
@@ -323,7 +321,7 @@ private fun PlanPage(
                     title = if (isCreateMode) title.trim().ifBlank { "Untitled task" } else task.title,
                     target = target,
                     startTime = startTime,
-                    durationMinutes = duration.toIntOrNull()?.coerceAtLeast(1) ?: task.durationMinutes,
+                    durationMinutes = duration.coerceAtLeast(1),
                     priority = priority,
                     status = if (isCreateMode) TaskStatus.PLANNED else task.status
                 )
@@ -338,6 +336,45 @@ private fun PlanPage(
             modifier = Modifier.fillMaxWidth().height(58.dp)
         ) {
             Text(if (isCreateMode) "Save task" else "Start work block", fontSize = 19.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+
+    if (showScheduleEditor) {
+        TaskScheduleEditor(
+            initialStartTime = startTime,
+            initialDurationMinutes = duration,
+            onDismiss = { showScheduleEditor = false },
+            onSave = { selectedStartTime, selectedDuration ->
+                startTime = selectedStartTime
+                duration = selectedDuration
+                showScheduleEditor = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun ScheduleField(startTime: LocalTime?, durationMinutes: Int, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(58.dp)
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color.White),
+        shape = RoundedCornerShape(18.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = startTime?.shortTimeLabel() ?: "No start time",
+                color = UiTokens.LowChipText,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text("$durationMinutes min", color = UiTokens.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
