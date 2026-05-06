@@ -57,3 +57,7 @@ enum class ReentryReason {
     COOLDOWN
 }
 
+data class ActiveWork(
+    val taskId: Long,
+    val isActive: Boolean
+)
