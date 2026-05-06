@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.example.attentioncoach.domain.ActiveWork
+import com.example.attentioncoach.domain.CalendarRules
 import com.example.attentioncoach.domain.DemoTaskRepository
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.Priority
@@ -34,7 +35,7 @@ fun AttentionCoachApp(
     val context = LocalContext.current
     val initialTasks = remember { DemoTaskRepository.seed() }
     var destination by remember { mutableStateOf(TopLevelDestination.TASKS) }
-    var selectedDate by remember { mutableStateOf(LocalDate.of(2026, 5, 5)) }
+    var selectedDate by remember { mutableStateOf(CalendarRules.today()) }
     var tasks by remember { mutableStateOf(initialTasks) }
     var nextTaskId by remember { mutableStateOf(initialTasks.nextTaskId()) }
     var selectedTaskId by remember { mutableStateOf<Long?>(null) }
