@@ -33,8 +33,13 @@ object SummaryCalculator {
     }
 }
 
+object FocusMonitorCadence {
+    const val POLL_INTERVAL_MILLIS = 5_000L
+    const val USAGE_LOOKBACK_MILLIS = 15_000L
+    const val REENTRY_COOLDOWN_MILLIS = 30_000L
+}
+
 object SoftLockPolicy {
-    private const val NOTIFICATION_COOLDOWN_MILLIS = 30_000L
     private const val APP_PACKAGE = "com.example.attentioncoach"
 
     fun reentryDecision(
@@ -55,7 +60,7 @@ object SoftLockPolicy {
         if (foregroundPackage !in leisurePackages) {
             return ReentryDecision(false, ReentryReason.NOT_LEISURE)
         }
-        if (lastNotificationMillis != null && nowMillis - lastNotificationMillis < NOTIFICATION_COOLDOWN_MILLIS) {
+        if (lastNotificationMillis != null && nowMillis - lastNotificationMillis < FocusMonitorCadence.REENTRY_COOLDOWN_MILLIS) {
             return ReentryDecision(false, ReentryReason.COOLDOWN)
         }
         return ReentryDecision(true, ReentryReason.LEISURE_APP)
