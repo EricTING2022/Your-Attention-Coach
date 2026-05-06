@@ -3,10 +3,13 @@ package com.example.attentioncoach.ui
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -23,7 +26,10 @@ import com.example.attentioncoach.domain.Priority
 import com.example.attentioncoach.domain.TaskStatus
 import com.example.attentioncoach.domain.TopLevelDestination
 import com.example.attentioncoach.domain.WorkSessionClock
+import com.example.attentioncoach.platform.AlarmPermissionHelper
 import com.example.attentioncoach.platform.FocusMonitorService
+import com.example.attentioncoach.platform.ReminderScheduleResult
+import com.example.attentioncoach.platform.TaskReminderScheduler
 import com.example.attentioncoach.platform.launchNeededApp
 import java.time.LocalDate
 
@@ -34,6 +40,8 @@ fun AttentionCoachApp(
 ) {
     val context = LocalContext.current
     val initialTasks = remember { DemoTaskRepository.seed() }
+    val alarmPermissionHelper = remember(context) { AlarmPermissionHelper(context) }
+    val reminderScheduler = remember(context) { TaskReminderScheduler(context, alarmPermissionHelper) }
     var destination by remember { mutableStateOf(TopLevelDestination.TASKS) }
     var selectedDate by remember { mutableStateOf(CalendarRules.today()) }
     var tasks by remember { mutableStateOf(initialTasks) }
@@ -42,10 +50,17 @@ fun AttentionCoachApp(
     var draftTask by remember { mutableStateOf<PlannedTask?>(null) }
     var activeWork by remember { mutableStateOf<ActiveWork?>(null) }
     var reentryOpen by remember { mutableStateOf(false) }
+    var showAlarmPermissionPrompt by remember { mutableStateOf(false) }
     val selectedTask = selectedTaskId?.let { id -> tasks.firstOrNull { it.id == id } }
     val detailTask = selectedTask ?: draftTask
     val isCreateMode = selectedTask == null && draftTask != null
     val activeWorkTask = activeWork?.taskId?.let { id -> tasks.firstOrNull { it.id == id } }
+
+    fun scheduleReminderIfNeeded(task: PlannedTask) {
+        if (reminderScheduler.schedule(task) == ReminderScheduleResult.NEEDS_EXACT_ALARM_PERMISSION) {
+            showAlarmPermissionPrompt = true
+        }
+    }
 
     LaunchedEffect(reentryTaskId) {
         val taskId = reentryTaskId ?: return@LaunchedEffect
@@ -65,6 +80,16 @@ fun AttentionCoachApp(
         } else {
             FocusMonitorService.stop(context)
         }
+    }
+
+    if (showAlarmPermissionPrompt) {
+        AlarmPermissionPrompt(
+            onDismiss = { showAlarmPermissionPrompt = false },
+            onOpenSettings = {
+                showAlarmPermissionPrompt = false
+                alarmPermissionHelper.requestExactAlarmAccess()
+            }
+        )
     }
 
     val currentWork = activeWork
@@ -180,9 +205,13 @@ fun AttentionCoachApp(
                 selectedTaskId = null
                 draftTask = null
             },
-            onSavePlan = { updated -> tasks = tasks.replaceTask(updated) },
+            onSavePlan = { updated ->
+                tasks = tasks.replaceTask(updated)
+                scheduleReminderIfNeeded(updated)
+            },
             onCreateTask = { created ->
                 tasks = tasks + created
+                scheduleReminderIfNeeded(created)
                 nextTaskId = maxOf(nextTaskId, created.id + 1)
                 selectedTaskId = null
                 draftTask = null
@@ -220,6 +249,25 @@ fun AttentionCoachApp(
             }
         )
     }
+}
+
+@Composable
+private fun AlarmPermissionPrompt(onDismiss: () -> Unit, onOpenSettings: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Allow reminder alarms?") },
+        text = { Text("Task start-time reminders need exact alarm access. You can keep the task saved and enable access in Android settings.") },
+        confirmButton = {
+            Button(onClick = onOpenSettings) {
+                Text("Open settings")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Not now")
+            }
+        }
+    )
 }
 
 @Composable
