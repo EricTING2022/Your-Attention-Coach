@@ -145,6 +145,11 @@ fun AttentionCoachApp(
                 draftTask = null
                 selectedTaskId = it
             },
+            onToggleTaskComplete = { taskId ->
+                tasks = tasks.map { task ->
+                    if (task.id == taskId) task.toggledCompletion() else task
+                }
+            },
             onAddTask = {
                 selectedTaskId = null
                 draftTask = PlannedTask(
@@ -243,6 +248,7 @@ private fun TopLevelScreen(
     tasks: List<PlannedTask>,
     onDateSelected: (LocalDate) -> Unit,
     onTaskSelected: (Long) -> Unit,
+    onToggleTaskComplete: (Long) -> Unit,
     onAddTask: () -> Unit,
     onSeedDemo: () -> Unit
 ) {
@@ -252,6 +258,7 @@ private fun TopLevelScreen(
             tasks = tasks,
             onDateSelected = onDateSelected,
             onTaskSelected = onTaskSelected,
+            onToggleTaskComplete = onToggleTaskComplete,
             onAddTask = onAddTask,
             modifier = Modifier
                 .fillMaxSize()
@@ -296,6 +303,23 @@ private fun PlannedTask.toActiveWork(nowMillis: Long = System.currentTimeMillis(
         plannedDurationMinutes = durationMinutes,
         startedAtMillis = nowMillis
     )
+}
+
+private fun PlannedTask.toggledCompletion(): PlannedTask {
+    return if (status == TaskStatus.FINISHED || status == TaskStatus.REVIEWED) {
+        copy(
+            status = TaskStatus.PLANNED,
+            actualFocusMinutes = 0,
+            actualCompletion = "",
+            mismatchReason = "",
+            nextAdjustment = ""
+        )
+    } else {
+        copy(
+            status = TaskStatus.FINISHED,
+            actualFocusMinutes = 0
+        )
+    }
 }
 
 private fun ActiveWork.pauseAt(nowMillis: Long): ActiveWork {

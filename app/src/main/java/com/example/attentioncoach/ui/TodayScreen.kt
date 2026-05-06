@@ -28,7 +28,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,6 +41,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -50,7 +50,8 @@ import com.example.attentioncoach.domain.DatePickerOptions
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.Priority
 import com.example.attentioncoach.domain.SummaryCalculator
-import com.example.attentioncoach.domain.TaskGrouper
+import com.example.attentioncoach.domain.TaskListSorter
+import com.example.attentioncoach.domain.TaskStatus
 import com.example.attentioncoach.domain.WeekTimeline
 import java.time.LocalDate
 import java.time.Month
@@ -62,12 +63,13 @@ fun TodayScreen(
     tasks: List<PlannedTask>,
     onDateSelected: (LocalDate) -> Unit,
     onTaskSelected: (Long) -> Unit,
+    onToggleTaskComplete: (Long) -> Unit,
     onAddTask: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
     val summary = remember(tasks) { SummaryCalculator.forTasks(tasks) }
-    val groups = remember(tasks) { TaskGrouper.group(tasks) }
+    val visibleTasks = remember(tasks) { TaskListSorter.sortForToday(tasks) }
 
     Box(modifier = modifier.fillMaxSize().background(UiTokens.Page)) {
         LazyColumn(
@@ -104,19 +106,12 @@ fun TodayScreen(
                     )
                 }
             }
-            items(groups.open, key = { it.id }) { task ->
-                TaskCard(task = task, onClick = { onTaskSelected(task.id) })
-            }
-            if (groups.open.isNotEmpty() && groups.completed.isNotEmpty()) {
-                item {
-                    HorizontalDivider(
-                        color = UiTokens.Outline.copy(alpha = 0.75f),
-                        modifier = Modifier.padding(horizontal = 28.dp)
-                    )
-                }
-            }
-            items(groups.completed, key = { it.id }) { task ->
-                TaskCard(task = task, onClick = { onTaskSelected(task.id) })
+            items(visibleTasks, key = { it.id }) { task ->
+                TaskCard(
+                    task = task,
+                    onClick = { onTaskSelected(task.id) },
+                    onToggleComplete = { onToggleTaskComplete(task.id) }
+                )
             }
             item { Spacer(Modifier.height(10.dp)) }
         }
@@ -233,7 +228,7 @@ private fun SummaryCard(label: String, value: String, modifier: Modifier = Modif
 }
 
 @Composable
-private fun TaskCard(task: PlannedTask, onClick: () -> Unit) {
+private fun TaskCard(task: PlannedTask, onClick: () -> Unit, onToggleComplete: () -> Unit) {
     Card(
         modifier = Modifier
             .padding(horizontal = 18.dp)
@@ -255,6 +250,7 @@ private fun TaskCard(task: PlannedTask, onClick: () -> Unit) {
                     fontSize = 17.sp,
                     lineHeight = 21.sp,
                     fontWeight = FontWeight.Bold,
+                    textDecoration = if (task.isCompleted()) TextDecoration.LineThrough else TextDecoration.None,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -264,9 +260,44 @@ private fun TaskCard(task: PlannedTask, onClick: () -> Unit) {
                     Chip(text = task.priority.displayName(), type = task.priority.chipType())
                 }
             }
-            Text(">", color = UiTokens.InkSoft, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            CompletionToggle(
+                completed = task.isCompleted(),
+                onClick = onToggleComplete
+            )
         }
     }
+}
+
+@Composable
+private fun CompletionToggle(completed: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(30.dp)
+            .clip(CircleShape)
+            .border(
+                width = 2.dp,
+                color = if (completed) UiTokens.GoogleBlue else UiTokens.Outline,
+                shape = CircleShape
+            )
+            .background(
+                if (completed) UiTokens.GoogleBlue.copy(alpha = 0.12f) else androidx.compose.ui.graphics.Color.Transparent
+            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        if (completed) {
+            Box(
+                modifier = Modifier
+                    .size(14.dp)
+                    .clip(CircleShape)
+                    .background(UiTokens.GoogleBlue)
+            )
+        }
+    }
+}
+
+private fun PlannedTask.isCompleted(): Boolean {
+    return status == TaskStatus.FINISHED || status == TaskStatus.REVIEWED
 }
 
 private enum class ChipType { Neutral, Red, Urgent, Important, Low }
