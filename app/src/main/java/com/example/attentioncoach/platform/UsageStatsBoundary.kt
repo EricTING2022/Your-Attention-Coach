@@ -12,10 +12,16 @@ class UsageStatsBoundary(private val context: Context) {
         var latestPackage: String? = null
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
-            if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED) {
+            if (event.eventType.isForegroundEvent()) {
                 latestPackage = event.packageName
             }
         }
         return latestPackage
+    }
+
+    @Suppress("DEPRECATION")
+    private fun Int.isForegroundEvent(): Boolean {
+        return this == UsageEvents.Event.ACTIVITY_RESUMED ||
+            this == UsageEvents.Event.MOVE_TO_FOREGROUND
     }
 }

@@ -8,6 +8,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -18,11 +19,15 @@ import com.example.attentioncoach.domain.DemoTaskRepository
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.TaskStatus
 import com.example.attentioncoach.domain.TopLevelDestination
+import com.example.attentioncoach.platform.FocusMonitorService
 import com.example.attentioncoach.platform.launchNeededApp
 import java.time.LocalDate
 
 @Composable
-fun AttentionCoachApp() {
+fun AttentionCoachApp(
+    reentryTaskId: Long? = null,
+    onReentryConsumed: () -> Unit = {}
+) {
     val context = LocalContext.current
     var destination by remember { mutableStateOf(TopLevelDestination.TASKS) }
     var selectedDate by remember { mutableStateOf(LocalDate.of(2026, 5, 5)) }
@@ -30,19 +35,59 @@ fun AttentionCoachApp() {
     var selectedTaskId by remember { mutableStateOf<Long?>(null) }
     var activeWorkTaskId by remember { mutableStateOf<Long?>(null) }
     var paused by remember { mutableStateOf(false) }
+    var reentryOpen by remember { mutableStateOf(false) }
     val selectedTask = selectedTaskId?.let { id -> tasks.firstOrNull { it.id == id } }
     val activeWorkTask = activeWorkTaskId?.let { id -> tasks.firstOrNull { it.id == id } }
 
+    LaunchedEffect(reentryTaskId) {
+        val taskId = reentryTaskId ?: return@LaunchedEffect
+        if (tasks.any { it.id == taskId }) {
+            activeWorkTaskId = taskId
+            selectedTaskId = null
+            destination = TopLevelDestination.TASKS
+            paused = false
+            reentryOpen = true
+        }
+        onReentryConsumed()
+    }
+
+    LaunchedEffect(activeWorkTask?.id, paused) {
+        if (activeWorkTask != null && !paused) {
+            FocusMonitorService.start(context, activeWorkTask)
+        } else {
+            FocusMonitorService.stop(context)
+        }
+    }
+
     if (activeWorkTask != null) {
-        if (paused) {
+        if (reentryOpen) {
+            ReentryScreen(
+                task = activeWorkTask,
+                onResume = { reentryOpen = false },
+                onAdjustPlan = {
+                    reentryOpen = false
+                    activeWorkTaskId = null
+                    selectedTaskId = activeWorkTask.id
+                },
+                onRecordReason = {
+                    reentryOpen = false
+                    activeWorkTaskId = null
+                    selectedTaskId = activeWorkTask.id
+                }
+            )
+        } else if (paused) {
             PauseScreen(onResume = { paused = false })
         } else {
             WorkScreen(
                 task = activeWorkTask,
-                onPause = { paused = true },
+                onPause = {
+                    reentryOpen = false
+                    paused = true
+                },
                 onExit = {
                     activeWorkTaskId = null
                     paused = false
+                    reentryOpen = false
                     destination = TopLevelDestination.TASKS
                 },
                 onNeededAppSelected = { launchNeededApp(context, it) }

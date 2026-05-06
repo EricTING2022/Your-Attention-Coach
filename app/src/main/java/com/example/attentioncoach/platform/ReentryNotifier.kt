@@ -28,36 +28,57 @@ class ReentryNotifier(private val context: Context) {
         notificationManager.createNotificationChannel(reentryChannel)
     }
 
-    fun showReentryBanner(taskTitle: String) {
+    fun buildActiveWorkNotification(taskId: Long, taskTitle: String): Notification {
         ensureChannels()
-        notificationManager.notify(REENTRY_NOTIFICATION_ID, buildReentryNotification(taskTitle))
+        return Notification.Builder(context, ACTIVE_WORK_CHANNEL)
+            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setContentTitle("Focus block running")
+            .setContentText(taskTitle)
+            .setContentIntent(reentryPendingIntent(taskId))
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setCategory(Notification.CATEGORY_SERVICE)
+            .build()
     }
 
-    private fun buildReentryNotification(taskTitle: String): Notification {
-        val intent = Intent(context, MainActivity::class.java).apply {
-            action = ACTION_REENTRY
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            context,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+    fun showReentryBanner(taskId: Long, taskTitle: String) {
+        ensureChannels()
+        notificationManager.notify(REENTRY_NOTIFICATION_ID, buildReentryNotification(taskId, taskTitle))
+    }
+
+    fun clearReentryBanner() {
+        notificationManager.cancel(REENTRY_NOTIFICATION_ID)
+    }
+
+    private fun buildReentryNotification(taskId: Long, taskTitle: String): Notification {
         return Notification.Builder(context, REENTRY_CHANNEL)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("Still your focus block?")
             .setContentText("You planned to work on $taskTitle. Tap to return.")
-            .setContentIntent(pendingIntent)
+            .setContentIntent(reentryPendingIntent(taskId))
             .setAutoCancel(true)
             .build()
+    }
+
+    private fun reentryPendingIntent(taskId: Long): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            action = ACTION_REENTRY
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(EXTRA_TASK_ID, taskId)
+        }
+        return PendingIntent.getActivity(
+            context,
+            taskId.toInt(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
     }
 
     companion object {
         const val ACTIVE_WORK_CHANNEL = "active_work_block"
         const val REENTRY_CHANNEL = "reentry_reminder"
         const val ACTION_REENTRY = "com.example.attentioncoach.REENTRY"
+        const val EXTRA_TASK_ID = "task_id"
         private const val REENTRY_NOTIFICATION_ID = 4521
     }
 }
-
