@@ -213,10 +213,6 @@ private fun WeekDayCell(
                 fontWeight = FontWeight.Bold
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-            Box(Modifier.size(14.dp).clip(CircleShape).background(UiTokens.GoogleBlue.copy(alpha = 0.75f)))
-            if (date.dayOfMonth == 5) Box(Modifier.size(14.dp).clip(CircleShape).background(UiTokens.DateAccent))
-        }
     }
 }
 
