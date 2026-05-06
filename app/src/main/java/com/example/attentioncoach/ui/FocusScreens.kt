@@ -178,6 +178,52 @@ fun PauseScreen(onResume: () -> Unit) {
 }
 
 @Composable
+fun ReentryScreen(
+    task: PlannedTask,
+    onResume: () -> Unit,
+    onAdjustPlan: () -> Unit,
+    onRecordReason: () -> Unit
+) {
+    BackHandler { onResume() }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(UiTokens.Page)
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color.White),
+            shape = RoundedCornerShape(28.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("Re-entry", color = UiTokens.InkSoft, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(task.title, fontSize = 26.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                Text(
+                    "You planned this block. Want to return, adjust the plan, or record why now is not right?",
+                    color = UiTokens.InkSoft,
+                    textAlign = TextAlign.Center
+                )
+                Button(onClick = onResume, modifier = Modifier.fillMaxWidth()) {
+                    Text("Resume task")
+                }
+                OutlinedButton(onClick = onAdjustPlan, modifier = Modifier.fillMaxWidth()) {
+                    Text("Adjust plan")
+                }
+                OutlinedButton(onClick = onRecordReason, modifier = Modifier.fillMaxWidth()) {
+                    Text("Record reason")
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun FocusChip(text: String) {
     Text(
         text = text,

@@ -14,14 +14,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import com.example.attentioncoach.domain.DemoTaskRepository
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.TaskStatus
 import com.example.attentioncoach.domain.TopLevelDestination
+import com.example.attentioncoach.platform.launchNeededApp
 import java.time.LocalDate
 
 @Composable
 fun AttentionCoachApp() {
+    val context = LocalContext.current
     var destination by remember { mutableStateOf(TopLevelDestination.TASKS) }
     var selectedDate by remember { mutableStateOf(LocalDate.of(2026, 5, 5)) }
     var tasks by remember { mutableStateOf(DemoTaskRepository.seed()) }
@@ -43,7 +46,7 @@ fun AttentionCoachApp() {
                     paused = false
                     destination = TopLevelDestination.TASKS
                 },
-                onNeededAppSelected = {}
+                onNeededAppSelected = { launchNeededApp(context, it) }
             )
         }
         return
