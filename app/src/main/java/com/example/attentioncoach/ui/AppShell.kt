@@ -26,7 +26,28 @@ fun AttentionCoachApp() {
     var selectedDate by remember { mutableStateOf(LocalDate.of(2026, 5, 5)) }
     var tasks by remember { mutableStateOf(DemoTaskRepository.seed()) }
     var selectedTaskId by remember { mutableStateOf<Long?>(null) }
+    var activeWorkTaskId by remember { mutableStateOf<Long?>(null) }
+    var paused by remember { mutableStateOf(false) }
     val selectedTask = selectedTaskId?.let { id -> tasks.firstOrNull { it.id == id } }
+    val activeWorkTask = activeWorkTaskId?.let { id -> tasks.firstOrNull { it.id == id } }
+
+    if (activeWorkTask != null) {
+        if (paused) {
+            PauseScreen(onResume = { paused = false })
+        } else {
+            WorkScreen(
+                task = activeWorkTask,
+                onPause = { paused = true },
+                onExit = {
+                    activeWorkTaskId = null
+                    paused = false
+                    destination = TopLevelDestination.TASKS
+                },
+                onNeededAppSelected = {}
+            )
+        }
+        return
+    }
 
     Scaffold(
         bottomBar = {
@@ -66,7 +87,10 @@ fun AttentionCoachApp() {
                 }
                 selectedTaskId = null
             },
-            onStartWork = { selectedTaskId = null }
+            onStartWork = {
+                activeWorkTaskId = it
+                selectedTaskId = null
+            }
         )
     }
 }
