@@ -13,7 +13,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import com.example.attentioncoach.domain.DemoTaskRepository
 import com.example.attentioncoach.domain.PlannedTask
@@ -66,7 +65,8 @@ fun AttentionCoachApp() {
             selectedDate = selectedDate,
             tasks = tasks.filter { it.date == selectedDate },
             onDateSelected = { selectedDate = it },
-            onTaskSelected = { selectedTaskId = it }
+            onTaskSelected = { selectedTaskId = it },
+            onSeedDemo = { tasks = DemoTaskRepository.seed() }
         )
     }
 
@@ -122,7 +122,8 @@ private fun TopLevelScreen(
     selectedDate: LocalDate,
     tasks: List<PlannedTask>,
     onDateSelected: (LocalDate) -> Unit,
-    onTaskSelected: (Long) -> Unit
+    onTaskSelected: (Long) -> Unit,
+    onSeedDemo: () -> Unit
 ) {
     when (destination) {
         TopLevelDestination.TASKS -> TodayScreen(
@@ -135,50 +136,26 @@ private fun TopLevelScreen(
                 .padding(paddingValues)
         )
 
-        TopLevelDestination.INSIGHTS -> PlaceholderScreen(
-            title = "This week",
-            body = "Weekly insight cards will render here.",
-            paddingValues = paddingValues
+        TopLevelDestination.INSIGHTS -> InsightsScreen(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
         )
 
-        TopLevelDestination.SETTINGS -> PlaceholderScreen(
-            title = "Preferences",
-            body = "Usage access, notifications, and demo settings will render here.",
-            paddingValues = paddingValues
-        )
-    }
-}
-
-@Composable
-private fun PlaceholderScreen(
-    title: String,
-    body: String,
-    paddingValues: PaddingValues
-) {
-    androidx.compose.foundation.layout.Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(paddingValues)
-            .padding(24.dp),
-        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)
-    ) {
-        Text(
-            text = title,
-            style = androidx.compose.material3.MaterialTheme.typography.headlineLarge,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-        )
-        Text(
-            text = body,
-            color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+        TopLevelDestination.SETTINGS -> SettingsScreen(
+            onSeedDemo = onSeedDemo,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
         )
     }
 }
 
 private fun TopLevelDestination.iconText(): String {
     return when (this) {
-        TopLevelDestination.TASKS -> "✓"
-        TopLevelDestination.INSIGHTS -> "↗"
-        TopLevelDestination.SETTINGS -> "⚙"
+        TopLevelDestination.TASKS -> "T"
+        TopLevelDestination.INSIGHTS -> "I"
+        TopLevelDestination.SETTINGS -> "S"
     }
 }
 
