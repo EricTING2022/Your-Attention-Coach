@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,6 +44,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.Priority
 import com.example.attentioncoach.domain.ReviewAvailability
@@ -94,117 +96,126 @@ fun TaskDetailSheet(
         )
     }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.96f),
-            shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp, bottomStart = 0.dp, bottomEnd = 0.dp),
-            colors = CardDefaults.cardColors(containerColor = UiTokens.Page)
+                .fillMaxSize(),
+            contentAlignment = androidx.compose.ui.Alignment.BottomCenter
         ) {
-            Column(
+            Card(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(18.dp)
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.98f),
+                shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp, bottomStart = 0.dp, bottomEnd = 0.dp),
+                colors = CardDefaults.cardColors(containerColor = UiTokens.Page)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(18.dp)
                 ) {
-                    Text("<", fontSize = 30.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onDismiss))
-                    Column(Modifier.weight(1f)) {
-                        Text(task.date.shortMonthDay().uppercase(), color = UiTokens.InkSoft, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text(
-                            if (isCreateMode) "New task" else task.title,
-                            fontSize = 30.sp,
-                            lineHeight = 32.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    if (!isCreateMode) {
-                        Box {
-                            Text(
-                                "...",
-                                fontSize = 28.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.clickable { taskMenuOpen = true }
-                            )
-                            DropdownMenu(
-                                expanded = taskMenuOpen,
-                                onDismissRequest = { taskMenuOpen = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Delete", color = UiTokens.RedChipText, fontWeight = FontWeight.Bold) },
-                                    onClick = {
-                                        taskMenuOpen = false
-                                        confirmDelete = true
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-                Spacer(Modifier.height(16.dp))
-                if (canReview) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(UiTokens.NeutralChipBg)
-                            .padding(5.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Segment("Plan", pagerState.currentPage == 0, Modifier.weight(1f)) {
-                            scope.launch { pagerState.animateScrollToPage(0) }
+                        Text("<", fontSize = 30.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onDismiss))
+                        Column(Modifier.weight(1f)) {
+                            Text(task.date.shortMonthDay().uppercase(), color = UiTokens.InkSoft, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                if (isCreateMode) "New task" else task.title,
+                                fontSize = 30.sp,
+                                lineHeight = 32.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
-                        Segment("Review", pagerState.currentPage == 1, Modifier.weight(1f)) {
-                            scope.launch { pagerState.animateScrollToPage(1) }
+                        if (!isCreateMode) {
+                            Box {
+                                Text(
+                                    "...",
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.clickable { taskMenuOpen = true }
+                                )
+                                DropdownMenu(
+                                    expanded = taskMenuOpen,
+                                    onDismissRequest = { taskMenuOpen = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Delete", color = UiTokens.RedChipText, fontWeight = FontWeight.Bold) },
+                                        onClick = {
+                                            taskMenuOpen = false
+                                            confirmDelete = true
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                     Spacer(Modifier.height(16.dp))
-                }
-                if (canReview) {
-                    HorizontalPager(
-                        state = pagerState,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                    ) { page ->
-                        Column(
+                    if (canReview) {
+                        Row(
                             modifier = Modifier
-                                .fillMaxSize()
-                                .verticalScroll(rememberScrollState())
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(UiTokens.NeutralChipBg)
+                                .padding(5.dp)
                         ) {
-                            if (page == 0) {
-                                PlanPage(
-                                    task = task,
-                                    isCreateMode = isCreateMode,
-                                    title = title,
-                                    onTitleChange = { title = it },
-                                    onSavePlan = onSavePlan,
-                                    onCreateTask = onCreateTask,
-                                    onStartWork = onStartWork
-                                )
-                            } else {
-                                ReviewPage(task = task, onSaveReview = onSaveReview)
+                            Segment("Plan", pagerState.currentPage == 0, Modifier.weight(1f)) {
+                                scope.launch { pagerState.animateScrollToPage(0) }
+                            }
+                            Segment("Review", pagerState.currentPage == 1, Modifier.weight(1f)) {
+                                scope.launch { pagerState.animateScrollToPage(1) }
                             }
                         }
+                        Spacer(Modifier.height(16.dp))
                     }
-                } else {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                            .verticalScroll(rememberScrollState())
-                    ) {
-                        PlanPage(
-                            task = task,
-                            isCreateMode = isCreateMode,
-                            title = title,
-                            onTitleChange = { title = it },
-                            onSavePlan = onSavePlan,
-                            onCreateTask = onCreateTask,
-                            onStartWork = onStartWork
-                        )
+                    if (canReview) {
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                        ) { page ->
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState())
+                            ) {
+                                if (page == 0) {
+                                    PlanPage(
+                                        task = task,
+                                        isCreateMode = isCreateMode,
+                                        title = title,
+                                        onTitleChange = { title = it },
+                                        onSavePlan = onSavePlan,
+                                        onCreateTask = onCreateTask,
+                                        onStartWork = onStartWork
+                                    )
+                                } else {
+                                    ReviewPage(task = task, onSaveReview = onSaveReview)
+                                }
+                            }
+                        }
+                    } else {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            PlanPage(
+                                task = task,
+                                isCreateMode = isCreateMode,
+                                title = title,
+                                onTitleChange = { title = it },
+                                onSavePlan = onSavePlan,
+                                onCreateTask = onCreateTask,
+                                onStartWork = onStartWork
+                            )
+                        }
                     }
                 }
             }
@@ -381,7 +392,18 @@ private fun ReviewPage(
 
 @Composable
 private fun FieldLabel(text: String, color: androidx.compose.ui.graphics.Color) {
-    Text(text.uppercase(), color = color, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(color)
+        )
+        Text(text.uppercase(), color = color, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
 }
 
 private fun Priority.color(): androidx.compose.ui.graphics.Color {

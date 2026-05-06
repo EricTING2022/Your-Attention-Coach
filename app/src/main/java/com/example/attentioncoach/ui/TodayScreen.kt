@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -145,7 +146,7 @@ private fun WeekTimelineHeader(
         modifier = Modifier
             .fillMaxWidth()
             .background(UiTokens.Page)
-            .padding(horizontal = 18.dp, vertical = 14.dp),
+            .padding(horizontal = 18.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Row(
@@ -222,15 +223,15 @@ private fun WeekDayCell(
 @Composable
 private fun SummaryCard(label: String, value: String, modifier: Modifier = Modifier) {
     Card(
-        modifier = modifier,
+        modifier = modifier.height(72.dp),
         colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color.White),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(18.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 11.dp)) {
             Text(label, color = UiTokens.InkSoft, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
-            Text(value, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text(value, fontSize = 21.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -477,6 +478,7 @@ private fun WheelOption(text: String, selected: Boolean, onClick: () -> Unit) {
         maxLines = 1,
         softWrap = false,
         overflow = TextOverflow.Ellipsis,
+        textAlign = TextAlign.Center,
         fontSize = if (selected) 24.sp else 21.sp,
         color = if (selected) UiTokens.Ink else UiTokens.InkSoft.copy(alpha = 0.58f),
         fontWeight = FontWeight.Bold,
