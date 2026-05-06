@@ -10,6 +10,21 @@
 
 ---
 
+## Prototype Reference Workflow
+
+Before changing Android UI or interaction code, use `docs/prototype_reference_workflow.md`.
+
+- Treat `../ui_prototype/index.html`, `../ui_prototype/styles.css`, and `../ui_prototype/app.js` as the design source files.
+- Use `index.html` for screen hierarchy and which areas are top-level, sheet-mode, focus-mode, or overlays.
+- Use `styles.css` for colors, typography, spacing, card/chip shapes, form field styling, timer sizing, and bottom navigation visibility rules.
+- Use `app.js` for state transitions, task grouping, week/date picker behavior, Plan/Review switching, priority dropdown behavior, and Work/Pause/Exit/Re-entry flows.
+- Use `../app_design_freeze/snapshots/*.png` only after implementation as the visual acceptance target.
+- For each UI subtask, note which prototype selectors/functions were referenced before comparing emulator screenshots.
+
+This workflow is part of the implementation contract. Do not tune Android UI purely by reading screenshots unless the matching prototype source is missing.
+
+---
+
 ## Git Discipline
 
 - Initialize `project/attention_coach_android` as a standalone git repository.
