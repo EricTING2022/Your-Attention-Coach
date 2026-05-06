@@ -277,7 +277,12 @@ private fun PlanPage(
                         onValueChange = {},
                         readOnly = true,
                         trailingIcon = { Text("v") },
-                        modifier = Modifier.fillMaxWidth().clickable { priorityOpen = true }
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable { priorityOpen = true }
                     )
                     DropdownMenu(expanded = priorityOpen, onDismissRequest = { priorityOpen = false }) {
                         Column(
