@@ -59,5 +59,10 @@ enum class ReentryReason {
 
 data class ActiveWork(
     val taskId: Long,
-    val isActive: Boolean
+    val isActive: Boolean,
+    val plannedDurationMinutes: Int = 0,
+    val startedAtMillis: Long = 0L,
+    val accumulatedActiveMillis: Long = 0L,
+    val pauseStartedAtMillis: Long? = null,
+    val isPaused: Boolean = false
 )

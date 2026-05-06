@@ -70,4 +70,94 @@ class AppStateTest {
         assertEquals("New note", task?.planningNote)
         assertEquals(TaskStatus.PLANNED, task?.status)
     }
+
+    @Test
+    fun createTaskUsesSelectedDateAndDefaultPlanningValues() {
+        val store = AttentionCoachStore(DemoTaskRepository.seed())
+
+        val created = store.createTask(
+            date = LocalDate.of(2026, 5, 7),
+            title = "New task"
+        )
+
+        assertEquals(LocalDate.of(2026, 5, 7), created.date)
+        assertEquals("New task", created.title)
+        assertEquals("", created.target)
+        assertEquals(30, created.durationMinutes)
+        assertEquals(Priority.IMPORTANT, created.priority)
+        assertEquals(TaskStatus.PLANNED, created.status)
+        assertTrue(store.tasksForDate(LocalDate.of(2026, 5, 7)).any { it.id == created.id })
+    }
+
+    @Test
+    fun deleteTaskRemovesItFromDateGroups() {
+        val store = AttentionCoachStore(DemoTaskRepository.seed())
+
+        store.deleteTask(taskId = 1L)
+
+        assertFalse(store.tasksForDate(LocalDate.of(2026, 5, 5)).any { it.id == 1L })
+        assertEquals(null, store.taskById(1L))
+    }
+
+    @Test
+    fun finishWorkStoresActualFocusAndMovesTaskToCompletedGroup() {
+        val store = AttentionCoachStore(DemoTaskRepository.seed())
+
+        store.startWork(taskId = 1L, nowMillis = 0L)
+        store.finishWork(nowMillis = 61_000L)
+
+        val task = store.taskById(1L)
+        assertEquals(TaskStatus.FINISHED, task?.status)
+        assertEquals(2, task?.actualFocusMinutes)
+        assertTrue(TaskGrouper.group(store.tasksForDate(LocalDate.of(2026, 5, 5))).completed.any { it.id == 1L })
+    }
+
+    @Test
+    fun pausedTimeIsExcludedFromFinishedActualFocus() {
+        val store = AttentionCoachStore(DemoTaskRepository.seed())
+
+        store.startWork(taskId = 1L, nowMillis = 0L)
+        store.pauseWork(nowMillis = 20_000L)
+        store.resumeWork(nowMillis = 200_000L)
+        store.finishWork(nowMillis = 250_000L)
+
+        assertEquals(2, store.taskById(1L)?.actualFocusMinutes)
+    }
+
+    @Test
+    fun exitWorkDoesNotMutateActualFocusOrStatus() {
+        val store = AttentionCoachStore(DemoTaskRepository.seed())
+
+        store.startWork(taskId = 1L, nowMillis = 0L)
+        store.exitWork()
+
+        val task = store.taskById(1L)
+        assertEquals(TaskStatus.PLANNED, task?.status)
+        assertEquals(28, task?.actualFocusMinutes)
+    }
+
+    @Test
+    fun reviewIsAvailableOnlyAfterFinishOrReview() {
+        assertFalse(ReviewAvailability.canReview(TaskStatus.PLANNED))
+        assertFalse(ReviewAvailability.canReview(TaskStatus.PAUSED))
+        assertFalse(ReviewAvailability.canReview(TaskStatus.MISSED))
+        assertTrue(ReviewAvailability.canReview(TaskStatus.FINISHED))
+        assertTrue(ReviewAvailability.canReview(TaskStatus.REVIEWED))
+    }
+
+    @Test
+    fun saveReviewChangesFinishedTaskToReviewed() {
+        val store = AttentionCoachStore(DemoTaskRepository.seed())
+
+        store.startWork(taskId = 1L, nowMillis = 0L)
+        store.finishWork(nowMillis = 60_000L)
+        store.saveReview(
+            taskId = 1L,
+            actualCompletion = "Done.",
+            mismatchReason = "Clear enough",
+            nextAdjustment = "Keep block size."
+        )
+
+        assertEquals(TaskStatus.REVIEWED, store.taskById(1L)?.status)
+    }
 }

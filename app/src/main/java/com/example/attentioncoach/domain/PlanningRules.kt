@@ -23,6 +23,12 @@ object TaskGrouper {
     }
 }
 
+object ReviewAvailability {
+    fun canReview(status: TaskStatus): Boolean {
+        return status == TaskStatus.FINISHED || status == TaskStatus.REVIEWED
+    }
+}
+
 object SummaryCalculator {
     fun forTasks(tasks: List<PlannedTask>): DailySummary {
         return DailySummary(

@@ -4,6 +4,7 @@ import java.time.LocalDate
 
 class AttentionCoachStore(seedTasks: List<PlannedTask>) {
     private val tasksById = seedTasks.associateBy { it.id }.toMutableMap()
+    private var nextTaskId = (seedTasks.maxOfOrNull { it.id } ?: 0L) + 1L
 
     var activeWork: ActiveWork? = null
         private set
@@ -16,6 +17,35 @@ class AttentionCoachStore(seedTasks: List<PlannedTask>) {
 
     fun taskById(taskId: Long): PlannedTask? {
         return tasksById[taskId]
+    }
+
+    fun createTask(
+        date: LocalDate,
+        title: String,
+        target: String = "",
+        durationMinutes: Int = 30,
+        priority: Priority = Priority.IMPORTANT,
+        planningNote: String = ""
+    ): PlannedTask {
+        val task = PlannedTask(
+            id = nextTaskId++,
+            date = date,
+            title = title,
+            target = target,
+            durationMinutes = durationMinutes,
+            priority = priority,
+            status = TaskStatus.PLANNED,
+            planningNote = planningNote
+        )
+        tasksById[task.id] = task
+        return task
+    }
+
+    fun deleteTask(taskId: Long) {
+        tasksById.remove(taskId)
+        if (activeWork?.taskId == taskId) {
+            activeWork = activeWork?.copy(isActive = false)
+        }
     }
 
     fun saveReview(
@@ -49,14 +79,62 @@ class AttentionCoachStore(seedTasks: List<PlannedTask>) {
         )
     }
 
-    fun startWork(taskId: Long) {
-        if (tasksById.containsKey(taskId)) {
-            activeWork = ActiveWork(taskId = taskId, isActive = true)
-        }
+    fun startWork(taskId: Long, nowMillis: Long = System.currentTimeMillis()) {
+        val task = tasksById[taskId] ?: return
+        activeWork = ActiveWork(
+            taskId = taskId,
+            isActive = true,
+            plannedDurationMinutes = task.durationMinutes,
+            startedAtMillis = nowMillis
+        )
+    }
+
+    fun pauseWork(nowMillis: Long = System.currentTimeMillis()) {
+        val work = activeWork ?: return
+        if (!work.isActive || work.isPaused) return
+        activeWork = work.copy(
+            accumulatedActiveMillis = work.accumulatedActiveMillis + (nowMillis - work.startedAtMillis).coerceAtLeast(0L),
+            pauseStartedAtMillis = nowMillis,
+            isPaused = true
+        )
+    }
+
+    fun resumeWork(nowMillis: Long = System.currentTimeMillis()) {
+        val work = activeWork ?: return
+        if (!work.isActive || !work.isPaused) return
+        activeWork = work.copy(
+            startedAtMillis = nowMillis,
+            pauseStartedAtMillis = null,
+            isPaused = false
+        )
+    }
+
+    fun finishWork(nowMillis: Long = System.currentTimeMillis()) {
+        val work = activeWork ?: return
+        val task = tasksById[work.taskId] ?: return
+        val activeMillis = activeMillisFor(work, nowMillis)
+        tasksById[work.taskId] = task.copy(
+            status = TaskStatus.FINISHED,
+            actualFocusMinutes = activeMillis.toFocusMinutes()
+        )
+        activeWork = work.copy(isActive = false)
     }
 
     fun exitWork() {
         val work = activeWork ?: return
         activeWork = work.copy(isActive = false)
+    }
+
+    private fun activeMillisFor(work: ActiveWork, nowMillis: Long): Long {
+        return if (work.isPaused) {
+            work.accumulatedActiveMillis
+        } else {
+            work.accumulatedActiveMillis + (nowMillis - work.startedAtMillis).coerceAtLeast(0L)
+        }
+    }
+
+    private fun Long.toFocusMinutes(): Int {
+        if (this <= 0L) return 0
+        return ((this + 59_999L) / 60_000L).toInt()
     }
 }
