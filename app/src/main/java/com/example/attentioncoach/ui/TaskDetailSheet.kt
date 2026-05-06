@@ -8,10 +8,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -27,9 +30,11 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,7 +45,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.Priority
+import com.example.attentioncoach.domain.ReviewAvailability
 import com.example.attentioncoach.domain.TaskStatus
+import kotlinx.coroutines.launch
 
 @Composable
 fun TaskDetailSheet(
@@ -53,10 +60,16 @@ fun TaskDetailSheet(
     onSaveReview: (Long, String, String, String) -> Unit,
     onStartWork: (Long) -> Unit
 ) {
-    var tab by remember(task.id) { mutableStateOf(DetailTab.Plan) }
     var title by remember(task.id) { mutableStateOf(task.title) }
     var taskMenuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    val canReview = !isCreateMode && ReviewAvailability.canReview(task.status)
+    val pagerState = rememberPagerState(pageCount = { if (canReview) 2 else 1 })
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(canReview) {
+        if (!canReview) pagerState.scrollToPage(0)
+    }
 
     if (confirmDelete) {
         AlertDialog(
@@ -91,7 +104,7 @@ fun TaskDetailSheet(
         ) {
             Column(
                 modifier = Modifier
-                    .verticalScroll(rememberScrollState())
+                    .fillMaxSize()
                     .padding(18.dp)
             ) {
                 Row(
@@ -132,7 +145,7 @@ fun TaskDetailSheet(
                     }
                 }
                 Spacer(Modifier.height(16.dp))
-                if (!isCreateMode) {
+                if (canReview) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -140,22 +153,59 @@ fun TaskDetailSheet(
                             .background(UiTokens.NeutralChipBg)
                             .padding(5.dp)
                     ) {
-                        Segment("Plan", tab == DetailTab.Plan, Modifier.weight(1f)) { tab = DetailTab.Plan }
-                        Segment("Review", tab == DetailTab.Review, Modifier.weight(1f)) { tab = DetailTab.Review }
+                        Segment("Plan", pagerState.currentPage == 0, Modifier.weight(1f)) {
+                            scope.launch { pagerState.animateScrollToPage(0) }
+                        }
+                        Segment("Review", pagerState.currentPage == 1, Modifier.weight(1f)) {
+                            scope.launch { pagerState.animateScrollToPage(1) }
+                        }
                     }
                     Spacer(Modifier.height(16.dp))
                 }
-                when (tab) {
-                    DetailTab.Plan -> PlanPage(
-                        task = task,
-                        isCreateMode = isCreateMode,
-                        title = title,
-                        onTitleChange = { title = it },
-                        onSavePlan = onSavePlan,
-                        onCreateTask = onCreateTask,
-                        onStartWork = onStartWork
-                    )
-                    DetailTab.Review -> ReviewPage(task = task, onSaveReview = onSaveReview)
+                if (canReview) {
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    ) { page ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            if (page == 0) {
+                                PlanPage(
+                                    task = task,
+                                    isCreateMode = isCreateMode,
+                                    title = title,
+                                    onTitleChange = { title = it },
+                                    onSavePlan = onSavePlan,
+                                    onCreateTask = onCreateTask,
+                                    onStartWork = onStartWork
+                                )
+                            } else {
+                                ReviewPage(task = task, onSaveReview = onSaveReview)
+                            }
+                        }
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        PlanPage(
+                            task = task,
+                            isCreateMode = isCreateMode,
+                            title = title,
+                            onTitleChange = { title = it },
+                            onSavePlan = onSavePlan,
+                            onCreateTask = onCreateTask,
+                            onStartWork = onStartWork
+                        )
+                    }
                 }
             }
         }
@@ -328,8 +378,6 @@ private fun ReviewPage(
 private fun FieldLabel(text: String, color: androidx.compose.ui.graphics.Color) {
     Text(text.uppercase(), color = color, fontSize = 12.sp, fontWeight = FontWeight.Bold)
 }
-
-private enum class DetailTab { Plan, Review }
 
 private fun Priority.color(): androidx.compose.ui.graphics.Color {
     return when (this) {
