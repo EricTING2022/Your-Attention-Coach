@@ -57,6 +57,7 @@ fun TodayScreen(
     tasks: List<PlannedTask>,
     onDateSelected: (LocalDate) -> Unit,
     onTaskSelected: (Long) -> Unit,
+    onAddTask: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
@@ -90,7 +91,12 @@ fun TodayScreen(
                     modifier = Modifier.padding(horizontal = 20.dp)
                 ) {
                     Text("Tasks", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    Text("Add", color = UiTokens.GoogleBlue, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Add",
+                        color = UiTokens.GoogleBlue,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable(onClick = onAddTask)
+                    )
                 }
             }
             items(groups.open, key = { it.id }) { task ->

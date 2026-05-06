@@ -10,11 +10,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -23,6 +25,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,16 +40,46 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.Priority
+import com.example.attentioncoach.domain.TaskStatus
 
 @Composable
 fun TaskDetailSheet(
     task: PlannedTask,
+    isCreateMode: Boolean = false,
     onDismiss: () -> Unit,
     onSavePlan: (PlannedTask) -> Unit,
+    onCreateTask: (PlannedTask) -> Unit = {},
+    onDeleteTask: (Long) -> Unit = {},
     onSaveReview: (Long, String, String, String) -> Unit,
     onStartWork: (Long) -> Unit
 ) {
     var tab by remember(task.id) { mutableStateOf(DetailTab.Plan) }
+    var title by remember(task.id) { mutableStateOf(task.title) }
+    var taskMenuOpen by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Delete task?") },
+            text = { Text("This task will be removed from the selected day.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmDelete = false
+                        onDeleteTask(task.id)
+                    }
+                ) {
+                    Text("Delete", color = UiTokens.RedChipText, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) {
+                    Text("Cancel", color = UiTokens.GoogleBlue, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -61,27 +94,67 @@ fun TaskDetailSheet(
                     .verticalScroll(rememberScrollState())
                     .padding(18.dp)
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     Text("<", fontSize = 30.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onDismiss))
-                    Column {
+                    Column(Modifier.weight(1f)) {
                         Text(task.date.shortMonthDay().uppercase(), color = UiTokens.InkSoft, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text(task.title, fontSize = 30.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            if (isCreateMode) "New task" else task.title,
+                            fontSize = 30.sp,
+                            lineHeight = 32.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    if (!isCreateMode) {
+                        Box {
+                            Text(
+                                "...",
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable { taskMenuOpen = true }
+                            )
+                            DropdownMenu(
+                                expanded = taskMenuOpen,
+                                onDismissRequest = { taskMenuOpen = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Delete", color = UiTokens.RedChipText, fontWeight = FontWeight.Bold) },
+                                    onClick = {
+                                        taskMenuOpen = false
+                                        confirmDelete = true
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
                 Spacer(Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(UiTokens.NeutralChipBg)
-                        .padding(5.dp)
-                ) {
-                    Segment("Plan", tab == DetailTab.Plan, Modifier.weight(1f)) { tab = DetailTab.Plan }
-                    Segment("Review", tab == DetailTab.Review, Modifier.weight(1f)) { tab = DetailTab.Review }
+                if (!isCreateMode) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(UiTokens.NeutralChipBg)
+                            .padding(5.dp)
+                    ) {
+                        Segment("Plan", tab == DetailTab.Plan, Modifier.weight(1f)) { tab = DetailTab.Plan }
+                        Segment("Review", tab == DetailTab.Review, Modifier.weight(1f)) { tab = DetailTab.Review }
+                    }
+                    Spacer(Modifier.height(16.dp))
                 }
-                Spacer(Modifier.height(16.dp))
                 when (tab) {
-                    DetailTab.Plan -> PlanPage(task = task, onSavePlan = onSavePlan, onStartWork = onStartWork)
+                    DetailTab.Plan -> PlanPage(
+                        task = task,
+                        isCreateMode = isCreateMode,
+                        title = title,
+                        onTitleChange = { title = it },
+                        onSavePlan = onSavePlan,
+                        onCreateTask = onCreateTask,
+                        onStartWork = onStartWork
+                    )
                     DetailTab.Review -> ReviewPage(task = task, onSaveReview = onSaveReview)
                 }
             }
@@ -110,7 +183,11 @@ private fun Segment(text: String, selected: Boolean, modifier: Modifier, onClick
 @Composable
 private fun PlanPage(
     task: PlannedTask,
+    isCreateMode: Boolean,
+    title: String,
+    onTitleChange: (String) -> Unit,
     onSavePlan: (PlannedTask) -> Unit,
+    onCreateTask: (PlannedTask) -> Unit,
     onStartWork: (Long) -> Unit
 ) {
     var target by remember(task.id) { mutableStateOf(task.target) }
@@ -118,8 +195,17 @@ private fun PlanPage(
     var priority by remember(task.id) { mutableStateOf(task.priority) }
     var note by remember(task.id) { mutableStateOf(task.planningNote) }
     var priorityOpen by remember { mutableStateOf(false) }
+    val priorityScroll = rememberScrollState()
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        if (isCreateMode) {
+            FieldLabel("Title", UiTokens.GoogleBlue)
+            OutlinedTextField(
+                value = title,
+                onValueChange = onTitleChange,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
         FieldLabel("Targets", UiTokens.GoogleBlue)
         OutlinedTextField(value = target, onValueChange = { target = it }, minLines = 3, modifier = Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -144,14 +230,22 @@ private fun PlanPage(
                         modifier = Modifier.fillMaxWidth().clickable { priorityOpen = true }
                     )
                     DropdownMenu(expanded = priorityOpen, onDismissRequest = { priorityOpen = false }) {
-                        Priority.entries.forEach {
-                            DropdownMenuItem(
-                                text = { Text(it.displayName(), color = it.color(), fontWeight = FontWeight.Bold) },
-                                onClick = {
-                                    priority = it
-                                    priorityOpen = false
-                                }
-                            )
+                        Column(
+                            modifier = Modifier
+                                .heightIn(max = 178.dp)
+                                .verticalScroll(priorityScroll)
+                                .padding(6.dp)
+                        ) {
+                            Priority.entries.forEach {
+                                PriorityOption(
+                                    priority = it,
+                                    selected = it == priority,
+                                    onClick = {
+                                        priority = it
+                                        priorityOpen = false
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -161,14 +255,40 @@ private fun PlanPage(
         OutlinedTextField(value = note, onValueChange = { note = it }, minLines = 4, modifier = Modifier.fillMaxWidth())
         Button(
             onClick = {
-                onSavePlan(task.copy(target = target, durationMinutes = duration.toIntOrNull() ?: task.durationMinutes, priority = priority, planningNote = note))
-                onStartWork(task.id)
+                val updated = task.copy(
+                    title = if (isCreateMode) title.trim().ifBlank { "Untitled task" } else task.title,
+                    target = target,
+                    durationMinutes = duration.toIntOrNull()?.coerceAtLeast(1) ?: task.durationMinutes,
+                    priority = priority,
+                    status = if (isCreateMode) TaskStatus.PLANNED else task.status,
+                    planningNote = note
+                )
+                if (isCreateMode) {
+                    onCreateTask(updated)
+                } else {
+                    onSavePlan(updated)
+                    onStartWork(task.id)
+                }
             },
             colors = ButtonDefaults.buttonColors(containerColor = UiTokens.GoogleBlue),
             modifier = Modifier.fillMaxWidth().height(58.dp)
         ) {
-            Text("Start work block", fontSize = 19.sp, fontWeight = FontWeight.Bold)
+            Text(if (isCreateMode) "Save task" else "Start work block", fontSize = 19.sp, fontWeight = FontWeight.Bold)
         }
+    }
+}
+
+@Composable
+private fun PriorityOption(priority: Priority, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(13.dp))
+            .background(if (selected) UiTokens.NeutralChipBg else androidx.compose.ui.graphics.Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 11.dp)
+    ) {
+        Text(priority.displayName(), color = priority.color(), fontWeight = FontWeight.Bold)
     }
 }
 

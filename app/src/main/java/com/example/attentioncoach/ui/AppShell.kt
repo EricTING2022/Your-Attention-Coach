@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.example.attentioncoach.domain.DemoTaskRepository
 import com.example.attentioncoach.domain.PlannedTask
+import com.example.attentioncoach.domain.Priority
 import com.example.attentioncoach.domain.TaskStatus
 import com.example.attentioncoach.domain.TopLevelDestination
 import com.example.attentioncoach.platform.FocusMonitorService
@@ -29,14 +30,19 @@ fun AttentionCoachApp(
     onReentryConsumed: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val initialTasks = remember { DemoTaskRepository.seed() }
     var destination by remember { mutableStateOf(TopLevelDestination.TASKS) }
     var selectedDate by remember { mutableStateOf(LocalDate.of(2026, 5, 5)) }
-    var tasks by remember { mutableStateOf(DemoTaskRepository.seed()) }
+    var tasks by remember { mutableStateOf(initialTasks) }
+    var nextTaskId by remember { mutableStateOf(initialTasks.nextTaskId()) }
     var selectedTaskId by remember { mutableStateOf<Long?>(null) }
+    var draftTask by remember { mutableStateOf<PlannedTask?>(null) }
     var activeWorkTaskId by remember { mutableStateOf<Long?>(null) }
     var paused by remember { mutableStateOf(false) }
     var reentryOpen by remember { mutableStateOf(false) }
     val selectedTask = selectedTaskId?.let { id -> tasks.firstOrNull { it.id == id } }
+    val detailTask = selectedTask ?: draftTask
+    val isCreateMode = selectedTask == null && draftTask != null
     val activeWorkTask = activeWorkTaskId?.let { id -> tasks.firstOrNull { it.id == id } }
 
     LaunchedEffect(reentryTaskId) {
@@ -110,16 +116,60 @@ fun AttentionCoachApp(
             selectedDate = selectedDate,
             tasks = tasks.filter { it.date == selectedDate },
             onDateSelected = { selectedDate = it },
-            onTaskSelected = { selectedTaskId = it },
-            onSeedDemo = { tasks = DemoTaskRepository.seed() }
+            onTaskSelected = {
+                draftTask = null
+                selectedTaskId = it
+            },
+            onAddTask = {
+                selectedTaskId = null
+                draftTask = PlannedTask(
+                    id = nextTaskId,
+                    date = selectedDate,
+                    title = "",
+                    target = "",
+                    durationMinutes = 30,
+                    priority = Priority.IMPORTANT,
+                    status = TaskStatus.PLANNED,
+                    planningNote = ""
+                )
+            },
+            onSeedDemo = {
+                val seeded = DemoTaskRepository.seed()
+                tasks = seeded
+                nextTaskId = seeded.nextTaskId()
+                selectedTaskId = null
+                draftTask = null
+            }
         )
     }
 
-    if (selectedTask != null) {
+    if (detailTask != null) {
         TaskDetailSheet(
-            task = selectedTask,
-            onDismiss = { selectedTaskId = null },
+            task = detailTask,
+            isCreateMode = isCreateMode,
+            onDismiss = {
+                selectedTaskId = null
+                draftTask = null
+            },
             onSavePlan = { updated -> tasks = tasks.replaceTask(updated) },
+            onCreateTask = { created ->
+                tasks = tasks + created
+                nextTaskId = maxOf(nextTaskId, created.id + 1)
+                selectedTaskId = null
+                draftTask = null
+                destination = TopLevelDestination.TASKS
+            },
+            onDeleteTask = { taskId ->
+                tasks = tasks.filterNot { it.id == taskId }
+                if (activeWorkTaskId == taskId) {
+                    activeWorkTaskId = null
+                    paused = false
+                    reentryOpen = false
+                }
+                selectedTaskId = null
+                draftTask = null
+                destination = TopLevelDestination.TASKS
+            },
             onSaveReview = { taskId, completion, reason, adjustment ->
                 tasks = tasks.map {
                     if (it.id == taskId) {
@@ -168,6 +218,7 @@ private fun TopLevelScreen(
     tasks: List<PlannedTask>,
     onDateSelected: (LocalDate) -> Unit,
     onTaskSelected: (Long) -> Unit,
+    onAddTask: () -> Unit,
     onSeedDemo: () -> Unit
 ) {
     when (destination) {
@@ -176,6 +227,7 @@ private fun TopLevelScreen(
             tasks = tasks,
             onDateSelected = onDateSelected,
             onTaskSelected = onTaskSelected,
+            onAddTask = onAddTask,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
@@ -206,4 +258,8 @@ private fun TopLevelDestination.iconText(): String {
 
 private fun List<PlannedTask>.replaceTask(updated: PlannedTask): List<PlannedTask> {
     return map { if (it.id == updated.id) updated else it }
+}
+
+private fun List<PlannedTask>.nextTaskId(): Long {
+    return (maxOfOrNull { it.id } ?: 0L) + 1L
 }
