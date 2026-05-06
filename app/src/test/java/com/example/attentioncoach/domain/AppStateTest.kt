@@ -50,4 +50,24 @@ class AppStateTest {
         assertEquals(before?.status, after?.status)
         assertFalse(store.activeWork?.isActive == true)
     }
+
+    @Test
+    fun updatePlanFieldsChangesOnlyEditablePlanValues() {
+        val store = AttentionCoachStore(DemoTaskRepository.seed())
+
+        store.updatePlan(
+            taskId = 1L,
+            target = "New target",
+            durationMinutes = 30,
+            priority = Priority.URGENT,
+            planningNote = "New note"
+        )
+
+        val task = store.taskById(1L)
+        assertEquals("New target", task?.target)
+        assertEquals(30, task?.durationMinutes)
+        assertEquals(Priority.URGENT, task?.priority)
+        assertEquals("New note", task?.planningNote)
+        assertEquals(TaskStatus.PLANNED, task?.status)
+    }
 }

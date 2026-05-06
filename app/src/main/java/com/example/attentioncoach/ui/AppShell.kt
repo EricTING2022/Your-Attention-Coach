@@ -15,6 +15,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.attentioncoach.domain.DemoTaskRepository
+import com.example.attentioncoach.domain.PlannedTask
+import com.example.attentioncoach.domain.TaskStatus
 import com.example.attentioncoach.domain.TopLevelDestination
 import java.time.LocalDate
 
@@ -22,7 +24,9 @@ import java.time.LocalDate
 fun AttentionCoachApp() {
     var destination by remember { mutableStateOf(TopLevelDestination.TASKS) }
     var selectedDate by remember { mutableStateOf(LocalDate.of(2026, 5, 5)) }
-    val tasks = remember { DemoTaskRepository.seed() }
+    var tasks by remember { mutableStateOf(DemoTaskRepository.seed()) }
+    var selectedTaskId by remember { mutableStateOf<Long?>(null) }
+    val selectedTask = selectedTaskId?.let { id -> tasks.firstOrNull { it.id == id } }
 
     Scaffold(
         bottomBar = {
@@ -37,7 +41,32 @@ fun AttentionCoachApp() {
             paddingValues = padding,
             selectedDate = selectedDate,
             tasks = tasks.filter { it.date == selectedDate },
-            onDateSelected = { selectedDate = it }
+            onDateSelected = { selectedDate = it },
+            onTaskSelected = { selectedTaskId = it }
+        )
+    }
+
+    if (selectedTask != null) {
+        TaskDetailSheet(
+            task = selectedTask,
+            onDismiss = { selectedTaskId = null },
+            onSavePlan = { updated -> tasks = tasks.replaceTask(updated) },
+            onSaveReview = { taskId, completion, reason, adjustment ->
+                tasks = tasks.map {
+                    if (it.id == taskId) {
+                        it.copy(
+                            status = TaskStatus.REVIEWED,
+                            actualCompletion = completion,
+                            mismatchReason = reason,
+                            nextAdjustment = adjustment
+                        )
+                    } else {
+                        it
+                    }
+                }
+                selectedTaskId = null
+            },
+            onStartWork = { selectedTaskId = null }
         )
     }
 }
@@ -64,15 +93,16 @@ private fun TopLevelScreen(
     destination: TopLevelDestination,
     paddingValues: PaddingValues,
     selectedDate: LocalDate,
-    tasks: List<com.example.attentioncoach.domain.PlannedTask>,
-    onDateSelected: (LocalDate) -> Unit
+    tasks: List<PlannedTask>,
+    onDateSelected: (LocalDate) -> Unit,
+    onTaskSelected: (Long) -> Unit
 ) {
     when (destination) {
         TopLevelDestination.TASKS -> TodayScreen(
             selectedDate = selectedDate,
             tasks = tasks,
             onDateSelected = onDateSelected,
-            onTaskSelected = {},
+            onTaskSelected = onTaskSelected,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
@@ -123,4 +153,8 @@ private fun TopLevelDestination.iconText(): String {
         TopLevelDestination.INSIGHTS -> "↗"
         TopLevelDestination.SETTINGS -> "⚙"
     }
+}
+
+private fun List<PlannedTask>.replaceTask(updated: PlannedTask): List<PlannedTask> {
+    return map { if (it.id == updated.id) updated else it }
 }

@@ -33,6 +33,22 @@ class AttentionCoachStore(seedTasks: List<PlannedTask>) {
         )
     }
 
+    fun updatePlan(
+        taskId: Long,
+        target: String,
+        durationMinutes: Int,
+        priority: Priority,
+        planningNote: String
+    ) {
+        val task = tasksById[taskId] ?: return
+        tasksById[taskId] = task.copy(
+            target = target,
+            durationMinutes = durationMinutes,
+            priority = priority,
+            planningNote = planningNote
+        )
+    }
+
     fun startWork(taskId: Long) {
         if (tasksById.containsKey(taskId)) {
             activeWork = ActiveWork(taskId = taskId, isActive = true)
