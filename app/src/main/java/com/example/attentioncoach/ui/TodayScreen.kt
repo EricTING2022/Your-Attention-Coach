@@ -1,0 +1,444 @@
+package com.example.attentioncoach.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import com.example.attentioncoach.domain.PlannedTask
+import com.example.attentioncoach.domain.Priority
+import com.example.attentioncoach.domain.SummaryCalculator
+import com.example.attentioncoach.domain.TaskGrouper
+import com.example.attentioncoach.domain.WeekTimeline
+import java.time.LocalDate
+import java.time.YearMonth
+
+@Composable
+fun TodayScreen(
+    selectedDate: LocalDate,
+    tasks: List<PlannedTask>,
+    onDateSelected: (LocalDate) -> Unit,
+    onTaskSelected: (Long) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var showDatePicker by remember { mutableStateOf(false) }
+    val summary = remember(tasks) { SummaryCalculator.forTasks(tasks) }
+    val groups = remember(tasks) { TaskGrouper.group(tasks) }
+
+    Box(modifier = modifier.fillMaxSize().background(UiTokens.Page)) {
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            item {
+                WeekTimelineHeader(
+                    selectedDate = selectedDate,
+                    onDateTitleClick = { showDatePicker = true },
+                    onDateSelected = onDateSelected
+                )
+            }
+            item {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.padding(horizontal = 18.dp)
+                ) {
+                    SummaryCard("PLANNED FOCUS", formatMinutes(summary.plannedMinutes), Modifier.weight(1f))
+                    SummaryCard("REVIEWED", "${summary.reviewedCount}/${summary.totalCount}", Modifier.weight(1f))
+                }
+            }
+            item {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                ) {
+                    Text("Tasks", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Text("Add", color = UiTokens.GoogleBlue, fontWeight = FontWeight.Bold)
+                }
+            }
+            items(groups.open, key = { it.id }) { task ->
+                TaskCard(task = task, onClick = { onTaskSelected(task.id) })
+            }
+            if (groups.open.isNotEmpty() && groups.completed.isNotEmpty()) {
+                item {
+                    HorizontalDivider(
+                        color = UiTokens.Outline.copy(alpha = 0.75f),
+                        modifier = Modifier.padding(horizontal = 28.dp)
+                    )
+                }
+            }
+            items(groups.completed, key = { it.id }) { task ->
+                TaskCard(task = task, onClick = { onTaskSelected(task.id) })
+            }
+            item { Spacer(Modifier.height(10.dp)) }
+        }
+
+        if (showDatePicker) {
+            DatePickerSheet(
+                selectedDate = selectedDate,
+                onDismiss = { showDatePicker = false },
+                onDateSelected = {
+                    onDateSelected(it)
+                    showDatePicker = false
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun WeekTimelineHeader(
+    selectedDate: LocalDate,
+    onDateTitleClick: () -> Unit,
+    onDateSelected: (LocalDate) -> Unit
+) {
+    var dragTotal by remember { mutableStateOf(0f) }
+    val week = WeekTimeline.weekFor(selectedDate)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(UiTokens.Page)
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Row(
+            modifier = Modifier.clickable(onClick = onDateTitleClick),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("${selectedDate.year}", color = UiTokens.DateAccent, fontSize = 34.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.width(6.dp))
+            Text(selectedDate.shortMonthDay(), fontSize = 34.sp, fontWeight = FontWeight.Bold)
+            Text(">", color = UiTokens.DateAccent, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .pointerInput(selectedDate) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (dragTotal < -45f) onDateSelected(selectedDate.plusDays(7))
+                            if (dragTotal > 45f) onDateSelected(selectedDate.minusDays(7))
+                            dragTotal = 0f
+                        },
+                        onHorizontalDrag = { _, dragAmount -> dragTotal += dragAmount }
+                    )
+                },
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            week.forEach { date ->
+                WeekDayCell(
+                    date = date,
+                    isSelected = date == selectedDate,
+                    onClick = { onDateSelected(date) }
+                )
+            }
+        }
+        Text("Swipe the week row to move between weeks", color = UiTokens.InkSoft, fontSize = 10.sp)
+    }
+}
+
+@Composable
+private fun WeekDayCell(
+    date: LocalDate,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 2.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(date.shortWeekday(), color = UiTokens.InkSoft, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(if (isSelected) UiTokens.DateAccent else androidx.compose.ui.graphics.Color.Transparent),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                "${date.dayOfMonth}",
+                color = if (isSelected) androidx.compose.ui.graphics.Color.White else UiTokens.Ink,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            Box(Modifier.size(14.dp).clip(CircleShape).background(UiTokens.GoogleBlue.copy(alpha = 0.75f)))
+            if (date.dayOfMonth == 5) Box(Modifier.size(14.dp).clip(CircleShape).background(UiTokens.DateAccent))
+        }
+    }
+}
+
+@Composable
+private fun SummaryCard(label: String, value: String, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color.White),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text(label, color = UiTokens.InkSoft, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            Text(value, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun TaskCard(task: PlannedTask, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .padding(horizontal = 18.dp)
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .border(1.dp, UiTokens.Outline.copy(alpha = 0.55f), RoundedCornerShape(20.dp)),
+        colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color.White),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    task.title,
+                    color = UiTokens.Ink,
+                    fontSize = 17.sp,
+                    lineHeight = 21.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Chip(text = "${task.durationMinutes} min", type = ChipType.Neutral)
+                    Chip(text = task.priority.displayName(), type = task.priority.chipType())
+                }
+            }
+            Text(">", color = UiTokens.InkSoft, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+private enum class ChipType { Neutral, Red, Urgent, Important, Low }
+
+@Composable
+private fun Chip(text: String, type: ChipType) {
+    val (bg, fg) = when (type) {
+        ChipType.Neutral -> UiTokens.NeutralChipBg to UiTokens.NeutralChipText
+        ChipType.Red -> UiTokens.RedChipBg to UiTokens.RedChipText
+        ChipType.Urgent -> UiTokens.UrgentChipBg to UiTokens.UrgentChipText
+        ChipType.Important -> UiTokens.ImportantChipBg to UiTokens.ImportantChipText
+        ChipType.Low -> UiTokens.LowChipBg to UiTokens.LowChipText
+    }
+    Text(
+        text = text,
+        color = fg,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(bg)
+            .padding(horizontal = 12.dp, vertical = 7.dp)
+    )
+}
+
+private fun Priority.chipType(): ChipType {
+    return when (this) {
+        Priority.URGENT_IMPORTANT -> ChipType.Red
+        Priority.URGENT -> ChipType.Urgent
+        Priority.IMPORTANT -> ChipType.Important
+        Priority.NOT_URGENT -> ChipType.Low
+    }
+}
+
+@Composable
+private fun DatePickerSheet(
+    selectedDate: LocalDate,
+    onDismiss: () -> Unit,
+    onDateSelected: (LocalDate) -> Unit
+) {
+    var pickerMonth by remember { mutableStateOf(YearMonth.from(selectedDate)) }
+    var wheelMode by remember { mutableStateOf(false) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(650.dp),
+            shape = RoundedCornerShape(34.dp),
+            colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color.White)
+        ) {
+            Column(Modifier.padding(24.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { wheelMode = !wheelMode },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("${pickerMonth.year}", color = UiTokens.DateAccent, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.width(5.dp))
+                        Text(pickerMonth.month.name.lowercase().replaceFirstChar { it.uppercase() }.take(3), fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                        Text(if (wheelMode) " v" else " >", color = UiTokens.DateAccent, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = UiTokens.Page, contentColor = UiTokens.Ink)
+                    ) {
+                        Text("X")
+                    }
+                }
+                Spacer(Modifier.height(18.dp))
+                if (wheelMode) {
+                    YearMonthWheel(
+                        pickerMonth = pickerMonth,
+                        onYearMonthSelected = {
+                            pickerMonth = it
+                            wheelMode = false
+                        }
+                    )
+                } else {
+                    MonthGrid(
+                        pickerMonth = pickerMonth,
+                        selectedDate = selectedDate,
+                        onDateSelected = onDateSelected
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MonthGrid(
+    pickerMonth: YearMonth,
+    selectedDate: LocalDate,
+    onDateSelected: (LocalDate) -> Unit
+) {
+    val first = pickerMonth.atDay(1)
+    val offset = first.dayOfWeek.value % 7
+    val dates = buildList<LocalDate?> {
+        repeat(offset) { add(null) }
+        for (day in 1..pickerMonth.lengthOfMonth()) add(pickerMonth.atDay(day))
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat").forEach {
+            Text(it, color = UiTokens.InkSoft, fontWeight = FontWeight.Bold)
+        }
+    }
+    Spacer(Modifier.height(18.dp))
+    LazyVerticalGrid(columns = GridCells.Fixed(7), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        items(dates) { date ->
+            Box(
+                modifier = Modifier
+                    .height(60.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .then(if (date != null) Modifier.clickable { onDateSelected(date) } else Modifier),
+                contentAlignment = Alignment.Center
+            ) {
+                if (date != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(if (date == selectedDate) UiTokens.DateAccent else androidx.compose.ui.graphics.Color.Transparent),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "${date.dayOfMonth}",
+                            color = if (date == selectedDate) androidx.compose.ui.graphics.Color.White else UiTokens.Ink,
+                            fontSize = 23.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun YearMonthWheel(
+    pickerMonth: YearMonth,
+    onYearMonthSelected: (YearMonth) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxSize(),
+        horizontalArrangement = Arrangement.spacedBy(18.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+            (-3..3).forEach { offset ->
+                val year = pickerMonth.year + offset
+                Text(
+                    "$year",
+                    fontSize = if (offset == 0) 28.sp else 22.sp,
+                    color = if (offset == 0) UiTokens.Ink else UiTokens.InkSoft,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .clickable { onYearMonthSelected(YearMonth.of(year, pickerMonth.month)) }
+                        .padding(8.dp)
+                )
+            }
+        }
+        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+            (-3..3).forEach { offset ->
+                val month = pickerMonth.plusMonths(offset.toLong()).month
+                Text(
+                    month.name.lowercase().replaceFirstChar { it.uppercase() },
+                    fontSize = if (offset == 0) 28.sp else 22.sp,
+                    color = if (offset == 0) UiTokens.Ink else UiTokens.InkSoft,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .clickable { onYearMonthSelected(YearMonth.of(pickerMonth.year, month)) }
+                        .padding(8.dp)
+                )
+            }
+        }
+    }
+}

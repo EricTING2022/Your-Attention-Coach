@@ -1,11 +1,8 @@
 package com.example.attentioncoach.ui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -16,13 +13,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.attentioncoach.domain.DemoTaskRepository
 import com.example.attentioncoach.domain.TopLevelDestination
+import java.time.LocalDate
 
 @Composable
 fun AttentionCoachApp() {
     var destination by remember { mutableStateOf(TopLevelDestination.TASKS) }
+    var selectedDate by remember { mutableStateOf(LocalDate.of(2026, 5, 5)) }
+    val tasks = remember { DemoTaskRepository.seed() }
 
     Scaffold(
         bottomBar = {
@@ -32,7 +32,13 @@ fun AttentionCoachApp() {
             )
         }
     ) { padding ->
-        TopLevelScreen(destination = destination, paddingValues = padding)
+        TopLevelScreen(
+            destination = destination,
+            paddingValues = padding,
+            selectedDate = selectedDate,
+            tasks = tasks.filter { it.date == selectedDate },
+            onDateSelected = { selectedDate = it }
+        )
     }
 }
 
@@ -56,27 +62,57 @@ private fun AttentionBottomBar(
 @Composable
 private fun TopLevelScreen(
     destination: TopLevelDestination,
+    paddingValues: PaddingValues,
+    selectedDate: LocalDate,
+    tasks: List<com.example.attentioncoach.domain.PlannedTask>,
+    onDateSelected: (LocalDate) -> Unit
+) {
+    when (destination) {
+        TopLevelDestination.TASKS -> TodayScreen(
+            selectedDate = selectedDate,
+            tasks = tasks,
+            onDateSelected = onDateSelected,
+            onTaskSelected = {},
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        )
+
+        TopLevelDestination.INSIGHTS -> PlaceholderScreen(
+            title = "This week",
+            body = "Weekly insight cards will render here.",
+            paddingValues = paddingValues
+        )
+
+        TopLevelDestination.SETTINGS -> PlaceholderScreen(
+            title = "Preferences",
+            body = "Usage access, notifications, and demo settings will render here.",
+            paddingValues = paddingValues
+        )
+    }
+}
+
+@Composable
+private fun PlaceholderScreen(
+    title: String,
+    body: String,
     paddingValues: PaddingValues
 ) {
-    Column(
+    androidx.compose.foundation.layout.Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(paddingValues)
             .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)
     ) {
         Text(
-            text = destination.label,
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold
+            text = title,
+            style = androidx.compose.material3.MaterialTheme.typography.headlineLarge,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
         )
         Text(
-            text = when (destination) {
-                TopLevelDestination.TASKS -> "Today planning will render here."
-                TopLevelDestination.INSIGHTS -> "Weekly insight cards will render here."
-                TopLevelDestination.SETTINGS -> "Preferences will render here."
-            },
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            text = body,
+            color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -88,4 +124,3 @@ private fun TopLevelDestination.iconText(): String {
         TopLevelDestination.SETTINGS -> "⚙"
     }
 }
-
