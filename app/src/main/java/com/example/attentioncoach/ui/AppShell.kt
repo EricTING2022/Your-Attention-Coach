@@ -15,11 +15,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import com.example.attentioncoach.domain.ActiveWork
 import com.example.attentioncoach.domain.DemoTaskRepository
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.Priority
 import com.example.attentioncoach.domain.TaskStatus
 import com.example.attentioncoach.domain.TopLevelDestination
+import com.example.attentioncoach.domain.WorkSessionClock
 import com.example.attentioncoach.platform.FocusMonitorService
 import com.example.attentioncoach.platform.launchNeededApp
 import java.time.LocalDate
@@ -37,62 +39,84 @@ fun AttentionCoachApp(
     var nextTaskId by remember { mutableStateOf(initialTasks.nextTaskId()) }
     var selectedTaskId by remember { mutableStateOf<Long?>(null) }
     var draftTask by remember { mutableStateOf<PlannedTask?>(null) }
-    var activeWorkTaskId by remember { mutableStateOf<Long?>(null) }
-    var paused by remember { mutableStateOf(false) }
+    var activeWork by remember { mutableStateOf<ActiveWork?>(null) }
     var reentryOpen by remember { mutableStateOf(false) }
     val selectedTask = selectedTaskId?.let { id -> tasks.firstOrNull { it.id == id } }
     val detailTask = selectedTask ?: draftTask
     val isCreateMode = selectedTask == null && draftTask != null
-    val activeWorkTask = activeWorkTaskId?.let { id -> tasks.firstOrNull { it.id == id } }
+    val activeWorkTask = activeWork?.taskId?.let { id -> tasks.firstOrNull { it.id == id } }
 
     LaunchedEffect(reentryTaskId) {
         val taskId = reentryTaskId ?: return@LaunchedEffect
-        if (tasks.any { it.id == taskId }) {
-            activeWorkTaskId = taskId
+        val task = tasks.firstOrNull { it.id == taskId }
+        if (task != null) {
+            activeWork = activeWork?.takeIf { it.taskId == taskId } ?: task.toActiveWork()
             selectedTaskId = null
             destination = TopLevelDestination.TASKS
-            paused = false
             reentryOpen = true
         }
         onReentryConsumed()
     }
 
-    LaunchedEffect(activeWorkTask?.id, paused) {
-        if (activeWorkTask != null && !paused) {
+    LaunchedEffect(activeWorkTask?.id, activeWork?.isPaused) {
+        if (activeWorkTask != null && activeWork?.isPaused == false) {
             FocusMonitorService.start(context, activeWorkTask)
         } else {
             FocusMonitorService.stop(context)
         }
     }
 
-    if (activeWorkTask != null) {
+    val currentWork = activeWork
+    if (activeWorkTask != null && currentWork != null) {
         if (reentryOpen) {
             ReentryScreen(
                 task = activeWorkTask,
                 onResume = { reentryOpen = false },
                 onAdjustPlan = {
                     reentryOpen = false
-                    activeWorkTaskId = null
+                    activeWork = null
                     selectedTaskId = activeWorkTask.id
                 },
                 onRecordReason = {
                     reentryOpen = false
-                    activeWorkTaskId = null
+                    activeWork = null
                     selectedTaskId = activeWorkTask.id
                 }
             )
-        } else if (paused) {
-            PauseScreen(onResume = { paused = false })
+        } else if (currentWork.isPaused) {
+            PauseScreen(
+                activeWork = currentWork,
+                onResume = { activeWork = activeWork?.resumeAt(System.currentTimeMillis()) }
+            )
         } else {
             WorkScreen(
                 task = activeWorkTask,
+                activeWork = currentWork,
                 onPause = {
                     reentryOpen = false
-                    paused = true
+                    activeWork = activeWork?.pauseAt(System.currentTimeMillis())
+                },
+                onFinish = {
+                    val work = activeWork
+                    if (work != null) {
+                        val activeMillis = WorkSessionClock.activeMillisAt(work, System.currentTimeMillis())
+                        tasks = tasks.map {
+                            if (it.id == work.taskId) {
+                                it.copy(
+                                    status = TaskStatus.FINISHED,
+                                    actualFocusMinutes = WorkSessionClock.focusMinutesFromMillis(activeMillis)
+                                )
+                            } else {
+                                it
+                            }
+                        }
+                    }
+                    activeWork = null
+                    reentryOpen = false
+                    destination = TopLevelDestination.TASKS
                 },
                 onExit = {
-                    activeWorkTaskId = null
-                    paused = false
+                    activeWork = null
                     reentryOpen = false
                     destination = TopLevelDestination.TASKS
                 },
@@ -161,9 +185,8 @@ fun AttentionCoachApp(
             },
             onDeleteTask = { taskId ->
                 tasks = tasks.filterNot { it.id == taskId }
-                if (activeWorkTaskId == taskId) {
-                    activeWorkTaskId = null
-                    paused = false
+                if (activeWork?.taskId == taskId) {
+                    activeWork = null
                     reentryOpen = false
                 }
                 selectedTaskId = null
@@ -186,7 +209,8 @@ fun AttentionCoachApp(
                 selectedTaskId = null
             },
             onStartWork = {
-                activeWorkTaskId = it
+                val task = tasks.firstOrNull { task -> task.id == it }
+                activeWork = task?.toActiveWork()
                 selectedTaskId = null
             }
         )
@@ -262,4 +286,31 @@ private fun List<PlannedTask>.replaceTask(updated: PlannedTask): List<PlannedTas
 
 private fun List<PlannedTask>.nextTaskId(): Long {
     return (maxOfOrNull { it.id } ?: 0L) + 1L
+}
+
+private fun PlannedTask.toActiveWork(nowMillis: Long = System.currentTimeMillis()): ActiveWork {
+    return ActiveWork(
+        taskId = id,
+        isActive = true,
+        plannedDurationMinutes = durationMinutes,
+        startedAtMillis = nowMillis
+    )
+}
+
+private fun ActiveWork.pauseAt(nowMillis: Long): ActiveWork {
+    if (isPaused) return this
+    return copy(
+        accumulatedActiveMillis = WorkSessionClock.activeMillisAt(this, nowMillis),
+        pauseStartedAtMillis = nowMillis,
+        isPaused = true
+    )
+}
+
+private fun ActiveWork.resumeAt(nowMillis: Long): ActiveWork {
+    if (!isPaused) return this
+    return copy(
+        startedAtMillis = nowMillis,
+        pauseStartedAtMillis = null,
+        isPaused = false
+    )
 }

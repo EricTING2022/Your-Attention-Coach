@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 
 object UiTokens {
     val GoogleBlue = Color(0xFF1A73E8)
+    val GoogleGreen = Color(0xFF188038)
     val Ink = Color(0xFF202124)
     val InkSoft = Color(0xFF5F6368)
     val Page = Color(0xFFF8FAFD)
@@ -21,4 +22,3 @@ object UiTokens {
     val LowChipBg = Color(0xFFDFF5EF)
     val LowChipText = Color(0xFF0B6F62)
 }
-

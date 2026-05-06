@@ -112,10 +112,10 @@ class AttentionCoachStore(seedTasks: List<PlannedTask>) {
     fun finishWork(nowMillis: Long = System.currentTimeMillis()) {
         val work = activeWork ?: return
         val task = tasksById[work.taskId] ?: return
-        val activeMillis = activeMillisFor(work, nowMillis)
+        val activeMillis = WorkSessionClock.activeMillisAt(work, nowMillis)
         tasksById[work.taskId] = task.copy(
             status = TaskStatus.FINISHED,
-            actualFocusMinutes = activeMillis.toFocusMinutes()
+            actualFocusMinutes = WorkSessionClock.focusMinutesFromMillis(activeMillis)
         )
         activeWork = work.copy(isActive = false)
     }
@@ -125,16 +125,4 @@ class AttentionCoachStore(seedTasks: List<PlannedTask>) {
         activeWork = work.copy(isActive = false)
     }
 
-    private fun activeMillisFor(work: ActiveWork, nowMillis: Long): Long {
-        return if (work.isPaused) {
-            work.accumulatedActiveMillis
-        } else {
-            work.accumulatedActiveMillis + (nowMillis - work.startedAtMillis).coerceAtLeast(0L)
-        }
-    }
-
-    private fun Long.toFocusMinutes(): Int {
-        if (this <= 0L) return 0
-        return ((this + 59_999L) / 60_000L).toInt()
-    }
 }

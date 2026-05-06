@@ -25,6 +25,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,19 +37,36 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.attentioncoach.domain.ActiveWork
 import com.example.attentioncoach.domain.PlannedTask
+import com.example.attentioncoach.domain.WorkSessionClock
+import kotlinx.coroutines.delay
 
 @Composable
 fun WorkScreen(
     task: PlannedTask,
+    activeWork: ActiveWork,
     onPause: () -> Unit,
+    onFinish: () -> Unit,
     onExit: () -> Unit,
     onNeededAppSelected: (String) -> Unit
 ) {
-    var confirmExit by remember { mutableStateOf(false) }
+    var exitConfirmStep by remember { mutableStateOf(0) }
+    var finishConfirmStep by remember { mutableStateOf(0) }
     var neededMenuOpen by remember { mutableStateOf(false) }
+    var nowMillis by remember(activeWork.taskId, activeWork.startedAtMillis) { mutableStateOf(System.currentTimeMillis()) }
+    val activeMillis = WorkSessionClock.activeMillisAt(activeWork, nowMillis)
+    val timerText = WorkSessionClock.workTimerText(task.durationMinutes, activeMillis)
+    val timerLabel = if (timerText.startsWith("+")) "OVERTIME" else "REMAINING"
 
-    BackHandler { confirmExit = true }
+    LaunchedEffect(activeWork.taskId, activeWork.startedAtMillis, activeWork.accumulatedActiveMillis) {
+        while (true) {
+            nowMillis = System.currentTimeMillis()
+            delay(1_000L)
+        }
+    }
+
+    BackHandler { exitConfirmStep = 1 }
 
     Box(
         modifier = Modifier
@@ -86,8 +104,8 @@ fun WorkScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("18:42", fontSize = 48.sp, fontWeight = FontWeight.Bold)
-                        Text("ELAPSED", color = UiTokens.InkSoft, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(timerText, fontSize = 48.sp, fontWeight = FontWeight.Bold)
+                        Text(timerLabel, color = UiTokens.InkSoft, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -117,7 +135,14 @@ fun WorkScreen(
                         Text("Pause", fontWeight = FontWeight.Bold)
                     }
                     Button(
-                        onClick = { confirmExit = true },
+                        onClick = { finishConfirmStep = 1 },
+                        modifier = Modifier.weight(1f).height(54.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = UiTokens.GoogleGreen)
+                    ) {
+                        Text("Finish", fontWeight = FontWeight.Bold)
+                    }
+                    Button(
+                        onClick = { exitConfirmStep = 1 },
                         modifier = Modifier.weight(1f).height(54.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = UiTokens.RedChipText)
                     ) {
@@ -128,18 +153,80 @@ fun WorkScreen(
         }
     }
 
-    if (confirmExit) {
+    if (finishConfirmStep > 0) {
         AlertDialog(
-            onDismissRequest = { confirmExit = false },
-            title = { Text("Leave this focus block?", fontWeight = FontWeight.Bold) },
-            text = { Text("Exiting will stop the current timer and return to the main page. Your original plan will stay unchanged.") },
+            onDismissRequest = { finishConfirmStep = 0 },
+            title = {
+                Text(
+                    if (finishConfirmStep == 1) "Finish this task?" else "Record actual focus?",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    if (finishConfirmStep == 1) {
+                        "Finishing will stop the timer and record the active focus time."
+                    } else {
+                        "The task will be marked finished and move below the divider."
+                    }
+                )
+            },
             confirmButton = {
-                Button(onClick = onExit, colors = ButtonDefaults.buttonColors(containerColor = UiTokens.RedChipText)) {
-                    Text("Continue")
+                Button(
+                    onClick = {
+                        if (finishConfirmStep == 1) {
+                            finishConfirmStep = 2
+                        } else {
+                            onFinish()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = UiTokens.GoogleGreen)
+                ) {
+                    Text(if (finishConfirmStep == 1) "Continue" else "Finish")
                 }
             },
             dismissButton = {
-                OutlinedButton(onClick = { confirmExit = false }) {
+                OutlinedButton(onClick = { finishConfirmStep = 0 }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (exitConfirmStep > 0) {
+        AlertDialog(
+            onDismissRequest = { exitConfirmStep = 0 },
+            title = {
+                Text(
+                    if (exitConfirmStep == 1) "Leave this focus block?" else "Exit without saving time?",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    if (exitConfirmStep == 1) {
+                        "Exiting will stop the current timer and return to the main page. Your original plan will stay unchanged."
+                    } else {
+                        "No actual focus time will be recorded for this attempt."
+                    }
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (exitConfirmStep == 1) {
+                            exitConfirmStep = 2
+                        } else {
+                            onExit()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = UiTokens.RedChipText)
+                ) {
+                    Text(if (exitConfirmStep == 1) "Continue" else "Exit")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { exitConfirmStep = 0 }) {
                     Text("Cancel")
                 }
             }
@@ -148,8 +235,16 @@ fun WorkScreen(
 }
 
 @Composable
-fun PauseScreen(onResume: () -> Unit) {
+fun PauseScreen(activeWork: ActiveWork, onResume: () -> Unit) {
     BackHandler { }
+    val pauseStartedAt = activeWork.pauseStartedAtMillis ?: System.currentTimeMillis()
+    var nowMillis by remember(pauseStartedAt) { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(pauseStartedAt) {
+        while (true) {
+            nowMillis = System.currentTimeMillis()
+            delay(1_000L)
+        }
+    }
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -167,7 +262,7 @@ fun PauseScreen(onResume: () -> Unit) {
                 modifier = Modifier.padding(30.dp)
             ) {
                 Text("Pause ends before it steals the block.", textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
-                Text("02:53", fontSize = 58.sp, fontWeight = FontWeight.Bold)
+                Text(WorkSessionClock.pauseTimerText(pauseStartedAt, nowMillis), fontSize = 58.sp, fontWeight = FontWeight.Bold)
                 Text("This is the pause limit. Keep it short so the focus block stays recoverable.", textAlign = TextAlign.Center, color = UiTokens.InkSoft)
                 Button(onClick = onResume, modifier = Modifier.fillMaxWidth().height(58.dp)) {
                     Text("Continue focus", fontSize = 20.sp, fontWeight = FontWeight.Bold)
