@@ -90,6 +90,18 @@ class AppStateTest {
     }
 
     @Test
+    fun newTasksUseBlankReviewReasonByDefault() {
+        val store = AttentionCoachStore(DemoTaskRepository.seed())
+
+        val created = store.createTask(
+            date = LocalDate.of(2026, 5, 7),
+            title = "Blank reason task"
+        )
+
+        assertEquals("", created.mismatchReason)
+    }
+
+    @Test
     fun deleteTaskRemovesItFromDateGroups() {
         val store = AttentionCoachStore(DemoTaskRepository.seed())
 

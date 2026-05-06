@@ -13,7 +13,7 @@ data class PlannedTask(
     val planningNote: String,
     val actualFocusMinutes: Int = 0,
     val actualCompletion: String = "",
-    val mismatchReason: String = "Attention faded",
+    val mismatchReason: String = "",
     val nextAdjustment: String = ""
 )
 
