@@ -28,6 +28,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -46,6 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.attentioncoach.R
 import com.example.attentioncoach.domain.DatePickerOptions
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.Priority
@@ -151,7 +155,12 @@ private fun WeekTimelineHeader(
             Text("${selectedDate.year}", color = UiTokens.DateAccent, fontSize = 34.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.width(6.dp))
             Text(selectedDate.shortMonthDay(), fontSize = 34.sp, fontWeight = FontWeight.Bold)
-            Text(">", color = UiTokens.DateAccent, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+            Icon(
+                painter = painterResource(R.drawable.ic_chevron_right_24),
+                contentDescription = null,
+                tint = UiTokens.DateAccent,
+                modifier = Modifier.size(34.dp)
+            )
         }
         Row(
             modifier = Modifier
@@ -166,17 +175,50 @@ private fun WeekTimelineHeader(
                         onHorizontalDrag = { _, dragAmount -> dragTotal += dragAmount }
                     )
                 },
+            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            week.forEach { date ->
-                WeekDayCell(
-                    date = date,
-                    isSelected = date == selectedDate,
-                    onClick = { onDateSelected(date) }
-                )
+            WeekNavButton(
+                painterId = R.drawable.ic_chevron_left_24,
+                contentDescription = "Previous week",
+                onClick = { onDateSelected(selectedDate.minusDays(7)) }
+            )
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                week.forEach { date ->
+                    WeekDayCell(
+                        date = date,
+                        isSelected = date == selectedDate,
+                        onClick = { onDateSelected(date) }
+                    )
+                }
             }
+            WeekNavButton(
+                painterId = R.drawable.ic_chevron_right_24,
+                contentDescription = "Next week",
+                onClick = { onDateSelected(selectedDate.plusDays(7)) }
+            )
         }
-        Text("Swipe the week row to move between weeks", color = UiTokens.InkSoft, fontSize = 10.sp)
+    }
+}
+
+@Composable
+private fun WeekNavButton(painterId: Int, contentDescription: String, onClick: () -> Unit) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(34.dp)
+            .clip(CircleShape)
+            .background(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.75f))
+    ) {
+        Icon(
+            painter = painterResource(painterId),
+            contentDescription = contentDescription,
+            tint = UiTokens.InkSoft,
+            modifier = Modifier.size(24.dp)
+        )
     }
 }
 
