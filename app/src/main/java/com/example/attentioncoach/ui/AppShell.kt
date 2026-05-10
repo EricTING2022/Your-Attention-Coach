@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -17,7 +19,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import com.example.attentioncoach.R
 import com.example.attentioncoach.domain.ActiveWork
 import com.example.attentioncoach.domain.CalendarRules
 import com.example.attentioncoach.domain.DateIndicatorRules
@@ -282,13 +288,28 @@ private fun AttentionBottomBar(
     selected: TopLevelDestination,
     onSelected: (TopLevelDestination) -> Unit
 ) {
-    NavigationBar {
+    NavigationBar(
+        containerColor = Color.White,
+        tonalElevation = 0.dp
+    ) {
         TopLevelDestination.entries.forEach { destination ->
             NavigationBarItem(
                 selected = selected == destination,
                 onClick = { onSelected(destination) },
-                icon = { Text(text = destination.iconText()) },
-                label = { Text(text = destination.label) }
+                icon = {
+                    Icon(
+                        painter = painterResource(destination.iconRes()),
+                        contentDescription = null
+                    )
+                },
+                label = { Text(text = destination.label) },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = UiTokens.GoogleBlue,
+                    selectedTextColor = UiTokens.GoogleBlue,
+                    indicatorColor = UiTokens.GoogleBlue.copy(alpha = 0.14f),
+                    unselectedIconColor = UiTokens.InkSoft,
+                    unselectedTextColor = UiTokens.InkSoft
+                )
             )
         }
     }
@@ -336,11 +357,11 @@ private fun TopLevelScreen(
     }
 }
 
-private fun TopLevelDestination.iconText(): String {
+private fun TopLevelDestination.iconRes(): Int {
     return when (this) {
-        TopLevelDestination.TASKS -> "T"
-        TopLevelDestination.INSIGHTS -> "I"
-        TopLevelDestination.SETTINGS -> "S"
+        TopLevelDestination.TASKS -> R.drawable.ic_task_alt_24
+        TopLevelDestination.INSIGHTS -> R.drawable.ic_insights_24
+        TopLevelDestination.SETTINGS -> R.drawable.ic_settings_24
     }
 }
 
