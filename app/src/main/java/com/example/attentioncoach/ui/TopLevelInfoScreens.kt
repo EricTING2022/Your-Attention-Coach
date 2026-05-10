@@ -23,6 +23,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.attentioncoach.R
 import com.example.attentioncoach.domain.AppSettings
+import com.example.attentioncoach.domain.AppSettingsDefaults
 import com.example.attentioncoach.domain.InsightRules
 import com.example.attentioncoach.domain.NeededApp
 import com.example.attentioncoach.domain.PlannedTask
@@ -47,7 +49,8 @@ import java.time.LocalDate
 
 private enum class SettingsPane {
     HOME,
-    WHITELIST
+    WHITELIST,
+    INTERVAL
 }
 
 @Composable
@@ -113,7 +116,7 @@ fun SettingsScreen(
         SettingsPane.HOME -> SettingsHome(
             settings = settings,
             onWhitelistClick = { pane = SettingsPane.WHITELIST },
-            onIntervalClick = { },
+            onIntervalClick = { pane = SettingsPane.INTERVAL },
             modifier = modifier
         )
 
@@ -122,6 +125,16 @@ fun SettingsScreen(
             availableApps = availableApps,
             onAddNeededApp = onAddNeededApp,
             onRemoveNeededApp = onRemoveNeededApp,
+            onBack = { pane = SettingsPane.HOME },
+            modifier = modifier
+        )
+
+        SettingsPane.INTERVAL -> NotificationIntervalScreen(
+            settings = settings,
+            onIntervalConfirmed = {
+                onNotificationIntervalSelected(it)
+                pane = SettingsPane.HOME
+            },
             onBack = { pane = SettingsPane.HOME },
             modifier = modifier
         )
@@ -231,6 +244,67 @@ private fun AppsWhitelistScreen(
                 pickerOpen = false
             }
         )
+    }
+}
+
+@Composable
+private fun NotificationIntervalScreen(
+    settings: AppSettings,
+    onIntervalConfirmed: (Int) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var selectedInterval by remember(settings.notificationIntervalSeconds) {
+        mutableStateOf(settings.notificationIntervalSeconds)
+    }
+    LazyColumn(
+        modifier = modifier.fillMaxSize().background(UiTokens.Page).padding(horizontal = 28.dp, vertical = 22.dp),
+        verticalArrangement = Arrangement.spacedBy(22.dp)
+    ) {
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_chevron_left_24),
+                    contentDescription = "Back",
+                    tint = UiTokens.Ink,
+                    modifier = Modifier.size(42.dp).clickable(onClick = onBack)
+                )
+                Text(
+                    "Notification interval",
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 16.dp)
+                )
+            }
+        }
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color.White),
+                shape = RoundedCornerShape(24.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                LazyColumn(modifier = Modifier.heightIn(max = 430.dp)) {
+                    items(AppSettingsDefaults.notificationIntervalOptions) { seconds ->
+                        IntervalOptionRow(
+                            seconds = seconds,
+                            selected = selectedInterval == seconds,
+                            onClick = { selectedInterval = seconds }
+                        )
+                        if (seconds != AppSettingsDefaults.notificationIntervalOptions.last()) {
+                            HorizontalDivider(color = UiTokens.Outline, modifier = Modifier.padding(horizontal = 28.dp))
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Button(
+                onClick = { onIntervalConfirmed(selectedInterval) },
+                modifier = Modifier.fillMaxWidth().height(58.dp)
+            ) {
+                Text("Confirm", fontSize = 19.sp, fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 
@@ -371,6 +445,32 @@ private fun WhitelistAppRow(
         TextButton(onClick = onRemove) {
             Text("Remove", color = UiTokens.GoogleBlue, fontSize = 17.sp, fontWeight = FontWeight.Bold)
         }
+    }
+}
+
+@Composable
+private fun IntervalOptionRow(
+    seconds: Int,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 22.dp, vertical = 20.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            SettingsDisplayRules.intervalLabel(seconds),
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.weight(1f)
+        )
+        RadioButton(
+            selected = selected,
+            onClick = onClick
+        )
     }
 }
 
