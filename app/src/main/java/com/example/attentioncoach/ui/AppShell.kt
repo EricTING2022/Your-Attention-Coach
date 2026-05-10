@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.example.attentioncoach.domain.ActiveWork
 import com.example.attentioncoach.domain.CalendarRules
+import com.example.attentioncoach.domain.DateIndicatorRules
 import com.example.attentioncoach.domain.DemoTaskRepository
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.Priority
@@ -55,6 +56,11 @@ fun AttentionCoachApp(
     val detailTask = selectedTask ?: draftTask
     val isCreateMode = selectedTask == null && draftTask != null
     val activeWorkTask = activeWork?.taskId?.let { id -> tasks.firstOrNull { it.id == id } }
+    val unfinishedTaskDates = remember(tasks) {
+        tasks.groupBy { it.date }
+            .filterValues(DateIndicatorRules::hasUnfinishedTaskDot)
+            .keys
+    }
 
     fun scheduleReminderIfNeeded(task: PlannedTask) {
         if (reminderScheduler.schedule(task) == ReminderScheduleResult.NEEDS_EXACT_ALARM_PERMISSION) {
@@ -165,6 +171,7 @@ fun AttentionCoachApp(
             paddingValues = padding,
             selectedDate = selectedDate,
             tasks = tasks.filter { it.date == selectedDate },
+            unfinishedTaskDates = unfinishedTaskDates,
             onDateSelected = { selectedDate = it },
             onTaskSelected = {
                 draftTask = null
@@ -293,6 +300,7 @@ private fun TopLevelScreen(
     paddingValues: PaddingValues,
     selectedDate: LocalDate,
     tasks: List<PlannedTask>,
+    unfinishedTaskDates: Set<LocalDate>,
     onDateSelected: (LocalDate) -> Unit,
     onTaskSelected: (Long) -> Unit,
     onToggleTaskComplete: (Long) -> Unit,
@@ -303,6 +311,7 @@ private fun TopLevelScreen(
         TopLevelDestination.TASKS -> TodayScreen(
             selectedDate = selectedDate,
             tasks = tasks,
+            unfinishedTaskDates = unfinishedTaskDates,
             onDateSelected = onDateSelected,
             onTaskSelected = onTaskSelected,
             onToggleTaskComplete = onToggleTaskComplete,

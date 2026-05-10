@@ -65,6 +65,7 @@ import java.time.YearMonth
 fun TodayScreen(
     selectedDate: LocalDate,
     tasks: List<PlannedTask>,
+    unfinishedTaskDates: Set<LocalDate>,
     onDateSelected: (LocalDate) -> Unit,
     onTaskSelected: (Long) -> Unit,
     onToggleTaskComplete: (Long) -> Unit,
@@ -83,6 +84,7 @@ fun TodayScreen(
             item {
                 WeekTimelineHeader(
                     selectedDate = selectedDate,
+                    unfinishedTaskDates = unfinishedTaskDates,
                     onDateTitleClick = { showDatePicker = true },
                     onDateSelected = onDateSelected
                 )
@@ -123,6 +125,7 @@ fun TodayScreen(
         if (showDatePicker) {
             DatePickerSheet(
                 selectedDate = selectedDate,
+                unfinishedTaskDates = unfinishedTaskDates,
                 onDismiss = { showDatePicker = false },
                 onDateSelected = {
                     onDateSelected(it)
@@ -136,6 +139,7 @@ fun TodayScreen(
 @Composable
 private fun WeekTimelineHeader(
     selectedDate: LocalDate,
+    unfinishedTaskDates: Set<LocalDate>,
     onDateTitleClick: () -> Unit,
     onDateSelected: (LocalDate) -> Unit
 ) {
@@ -191,6 +195,7 @@ private fun WeekTimelineHeader(
                     WeekDayCell(
                         date = date,
                         isSelected = date == selectedDate,
+                        hasUnfinishedTask = date in unfinishedTaskDates,
                         onClick = { onDateSelected(date) }
                     )
                 }
@@ -226,6 +231,7 @@ private fun WeekNavButton(painterId: Int, contentDescription: String, onClick: (
 private fun WeekDayCell(
     date: LocalDate,
     isSelected: Boolean,
+    hasUnfinishedTask: Boolean,
     onClick: () -> Unit
 ) {
     Column(
@@ -249,6 +255,19 @@ private fun WeekDayCell(
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold
             )
+        }
+        Box(
+            modifier = Modifier.height(8.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (hasUnfinishedTask) {
+                Box(
+                    modifier = Modifier
+                        .size(7.dp)
+                        .clip(CircleShape)
+                        .background(UiTokens.GoogleBlue)
+                )
+            }
         }
     }
 }
@@ -377,6 +396,7 @@ private fun Priority.chipType(): ChipType {
 @Composable
 private fun DatePickerSheet(
     selectedDate: LocalDate,
+    unfinishedTaskDates: Set<LocalDate>,
     onDismiss: () -> Unit,
     onDateSelected: (LocalDate) -> Unit
 ) {
@@ -427,6 +447,7 @@ private fun DatePickerSheet(
                     MonthGrid(
                         pickerMonth = pickerMonth,
                         selectedDate = selectedDate,
+                        unfinishedTaskDates = unfinishedTaskDates,
                         onDateSelected = onDateSelected
                     )
                 }
@@ -439,6 +460,7 @@ private fun DatePickerSheet(
 private fun MonthGrid(
     pickerMonth: YearMonth,
     selectedDate: LocalDate,
+    unfinishedTaskDates: Set<LocalDate>,
     onDateSelected: (LocalDate) -> Unit
 ) {
     val first = pickerMonth.atDay(1)
@@ -463,19 +485,34 @@ private fun MonthGrid(
                 contentAlignment = Alignment.Center
             ) {
                 if (date != null) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(if (date == selectedDate) UiTokens.DateAccent else androidx.compose.ui.graphics.Color.Transparent),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            "${date.dayOfMonth}",
-                            color = if (date == selectedDate) androidx.compose.ui.graphics.Color.White else UiTokens.Ink,
-                            fontSize = 23.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(if (date == selectedDate) UiTokens.DateAccent else androidx.compose.ui.graphics.Color.Transparent),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "${date.dayOfMonth}",
+                                color = if (date == selectedDate) androidx.compose.ui.graphics.Color.White else UiTokens.Ink,
+                                fontSize = 23.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Box(
+                            modifier = Modifier.height(8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (date in unfinishedTaskDates) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(7.dp)
+                                        .clip(CircleShape)
+                                        .background(UiTokens.GoogleBlue)
+                                )
+                            }
+                        }
                     }
                 }
             }
