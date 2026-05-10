@@ -10,17 +10,26 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,6 +44,11 @@ import com.example.attentioncoach.domain.NeededApp
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.SettingsDisplayRules
 import java.time.LocalDate
+
+private enum class SettingsPane {
+    HOME,
+    WHITELIST
+}
 
 @Composable
 fun InsightsScreen(
@@ -88,9 +102,37 @@ fun InsightsScreen(
 @Composable
 fun SettingsScreen(
     settings: AppSettings,
+    availableApps: List<NeededApp>,
     onAddNeededApp: (NeededApp) -> Unit,
     onRemoveNeededApp: (String) -> Unit,
     onNotificationIntervalSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var pane by remember { mutableStateOf(SettingsPane.HOME) }
+    when (pane) {
+        SettingsPane.HOME -> SettingsHome(
+            settings = settings,
+            onWhitelistClick = { pane = SettingsPane.WHITELIST },
+            onIntervalClick = { },
+            modifier = modifier
+        )
+
+        SettingsPane.WHITELIST -> AppsWhitelistScreen(
+            settings = settings,
+            availableApps = availableApps,
+            onAddNeededApp = onAddNeededApp,
+            onRemoveNeededApp = onRemoveNeededApp,
+            onBack = { pane = SettingsPane.HOME },
+            modifier = modifier
+        )
+    }
+}
+
+@Composable
+private fun SettingsHome(
+    settings: AppSettings,
+    onWhitelistClick: () -> Unit,
+    onIntervalClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -104,10 +146,91 @@ fun SettingsScreen(
             SettingsMenuCard(
                 whitelistSummary = SettingsDisplayRules.whitelistSummary(settings.neededApps.size),
                 intervalSummary = SettingsDisplayRules.intervalLabel(settings.notificationIntervalSeconds),
-                onWhitelistClick = { },
-                onIntervalClick = { }
+                onWhitelistClick = onWhitelistClick,
+                onIntervalClick = onIntervalClick
             )
         }
+    }
+}
+
+@Composable
+private fun AppsWhitelistScreen(
+    settings: AppSettings,
+    availableApps: List<NeededApp>,
+    onAddNeededApp: (NeededApp) -> Unit,
+    onRemoveNeededApp: (String) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var pickerOpen by remember { mutableStateOf(false) }
+    LazyColumn(
+        modifier = modifier.fillMaxSize().background(UiTokens.Page).padding(horizontal = 28.dp, vertical = 22.dp),
+        verticalArrangement = Arrangement.spacedBy(22.dp)
+    ) {
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_chevron_left_24),
+                    contentDescription = "Back",
+                    tint = UiTokens.Ink,
+                    modifier = Modifier.size(42.dp).clickable(onClick = onBack)
+                )
+                Text(
+                    "Apps whitelist",
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 16.dp)
+                )
+            }
+        }
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color.White),
+                shape = RoundedCornerShape(24.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                    if (settings.neededApps.isEmpty()) {
+                        Text(
+                            "No apps in whitelist.",
+                            color = UiTokens.InkSoft,
+                            modifier = Modifier.padding(22.dp)
+                        )
+                    } else {
+                        settings.neededApps.forEachIndexed { index, app ->
+                            WhitelistAppRow(
+                                app = app,
+                                onRemove = { onRemoveNeededApp(app.packageName) }
+                            )
+                            if (index != settings.neededApps.lastIndex) {
+                                HorizontalDivider(color = UiTokens.Outline, modifier = Modifier.padding(start = 116.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Button(
+                onClick = { pickerOpen = true },
+                modifier = Modifier.fillMaxWidth().height(58.dp)
+            ) {
+                Text("+  Add app", fontSize = 19.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+
+    if (pickerOpen) {
+        AppPickerDialog(
+            availableApps = availableApps.filterNot { candidate ->
+                settings.neededApps.any { it.packageName == candidate.packageName }
+            },
+            onDismiss = { pickerOpen = false },
+            onAppSelected = {
+                onAddNeededApp(it)
+                pickerOpen = false
+            }
+        )
     }
 }
 
@@ -209,4 +332,102 @@ private fun SettingsMenuRow(
             modifier = Modifier.padding(start = 14.dp).size(28.dp)
         )
     }
+}
+
+@Composable
+private fun WhitelistAppRow(
+    app: NeededApp,
+    onRemove: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 22.dp, vertical = 18.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .background(UiTokens.ImportantChipBg),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_apps_grid_24),
+                contentDescription = null,
+                tint = UiTokens.GoogleBlue,
+                modifier = Modifier.size(26.dp)
+            )
+        }
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(app.label, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(app.packageName, color = UiTokens.InkSoft, fontSize = 15.sp)
+        }
+        TextButton(onClick = onRemove) {
+            Text("Remove", color = UiTokens.GoogleBlue, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun AppPickerDialog(
+    availableApps: List<NeededApp>,
+    onDismiss: () -> Unit,
+    onAppSelected: (NeededApp) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add app") },
+        text = {
+            if (availableApps.isEmpty()) {
+                Text("No available apps to add.", color = UiTokens.InkSoft)
+            } else {
+                LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+                    items(availableApps, key = { it.packageName }) { app ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onAppSelected(app) }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .clip(CircleShape)
+                                    .background(UiTokens.ImportantChipBg),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_apps_grid_24),
+                                    contentDescription = null,
+                                    tint = UiTokens.GoogleBlue,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(start = 14.dp)
+                            ) {
+                                Text(app.label, fontWeight = FontWeight.Bold)
+                                Text(app.packageName, color = UiTokens.InkSoft, fontSize = 12.sp)
+                            }
+                            Text("Add", color = UiTokens.GoogleBlue, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        }
+    )
 }

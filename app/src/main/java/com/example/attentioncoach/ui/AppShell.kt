@@ -38,6 +38,7 @@ import com.example.attentioncoach.domain.TopLevelDestination
 import com.example.attentioncoach.domain.WorkSessionClock
 import com.example.attentioncoach.platform.AlarmPermissionHelper
 import com.example.attentioncoach.platform.FocusMonitorService
+import com.example.attentioncoach.platform.InstalledAppsProvider
 import com.example.attentioncoach.platform.ReminderScheduleResult
 import com.example.attentioncoach.platform.TaskReminderScheduler
 import com.example.attentioncoach.platform.launchNeededApp
@@ -52,6 +53,8 @@ fun AttentionCoachApp(
     val initialTasks = remember { DemoTaskRepository.seed() }
     val alarmPermissionHelper = remember(context) { AlarmPermissionHelper(context) }
     val reminderScheduler = remember(context) { TaskReminderScheduler(context, alarmPermissionHelper) }
+    val installedAppsProvider = remember(context) { InstalledAppsProvider(context) }
+    val installedApps = remember(installedAppsProvider) { installedAppsProvider.launchableApps() }
     var destination by remember { mutableStateOf(TopLevelDestination.TASKS) }
     var selectedDate by remember { mutableStateOf(CalendarRules.today()) }
     var tasks by remember { mutableStateOf(initialTasks) }
@@ -211,6 +214,7 @@ fun AttentionCoachApp(
                 )
             },
             settings = appSettings,
+            availableApps = installedApps,
             onAddNeededApp = { appSettings = AppSettingsRules.addNeededApp(appSettings, it) },
             onRemoveNeededApp = { appSettings = AppSettingsRules.removeNeededApp(appSettings, it) },
             onNotificationIntervalSelected = {
@@ -336,6 +340,7 @@ private fun TopLevelScreen(
     onToggleTaskComplete: (Long) -> Unit,
     onAddTask: () -> Unit,
     settings: AppSettings,
+    availableApps: List<NeededApp>,
     onAddNeededApp: (NeededApp) -> Unit,
     onRemoveNeededApp: (String) -> Unit,
     onNotificationIntervalSelected: (Int) -> Unit
@@ -364,6 +369,7 @@ private fun TopLevelScreen(
 
         TopLevelDestination.SETTINGS -> SettingsScreen(
             settings = settings,
+            availableApps = availableApps,
             onAddNeededApp = onAddNeededApp,
             onRemoveNeededApp = onRemoveNeededApp,
             onNotificationIntervalSelected = onNotificationIntervalSelected,
