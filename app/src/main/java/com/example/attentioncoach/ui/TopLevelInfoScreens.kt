@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -34,24 +35,38 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.attentioncoach.R
 import com.example.attentioncoach.domain.AppSettings
 import com.example.attentioncoach.domain.AppSettingsDefaults
+import com.example.attentioncoach.domain.DailyInsight
 import com.example.attentioncoach.domain.InsightRules
 import com.example.attentioncoach.domain.NeededApp
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.SettingsDisplayRules
 import java.time.LocalDate
+import java.time.format.TextStyle
+import java.util.Locale
 
 private enum class SettingsPane {
     HOME,
     WHITELIST,
     INTERVAL
 }
+
+private val ReasonColors = listOf(
+    UiTokens.GoogleBlue,
+    Color(0xFFEA4335),
+    Color(0xFFFBBC04),
+    UiTokens.GoogleGreen,
+    UiTokens.UrgentChipText,
+    UiTokens.InkSoft
+)
 
 @Composable
 fun InsightsScreen(
@@ -60,42 +75,39 @@ fun InsightsScreen(
     modifier: Modifier = Modifier
 ) {
     val insight = InsightRules.weeklySummary(tasks, selectedDate)
+    val sessions = insight.daily.count { it.actualMinutes > 0 }
     LazyColumn(
         modifier = modifier.fillMaxSize().background(UiTokens.Page).padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            Text("This week", fontSize = 32.sp, fontWeight = FontWeight.Bold)
+            Text("Insights", fontSize = 34.sp, fontWeight = FontWeight.Bold)
         }
         item {
             InfoCard {
-                Text("PLANNED VS ACTUAL", color = UiTokens.InkSoft, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Text("${insight.actualMinusPlannedMinutes} min", fontSize = 34.sp, fontWeight = FontWeight.Bold)
-                Text("Actual focus minus planned focus over the last 7 days.", color = UiTokens.InkSoft)
-            }
-        }
-        item {
-            InfoCard {
-                Text("Planned vs actual", fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    listOf("Planned" to "${insight.plannedMinutes}m", "Actual" to "${insight.actualMinutes}m").forEach {
-                        Column(Modifier.weight(1f)) {
-                            Text(it.first, color = UiTokens.InkSoft, fontWeight = FontWeight.Bold)
-                            Text(it.second, color = UiTokens.GoogleBlue, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                        }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Planned vs actual", fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(UiTokens.ImportantChipBg)
+                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Text(formatSessionCount(sessions), color = UiTokens.ImportantChipText, fontWeight = FontWeight.Bold)
                     }
+                }
+                WeeklyBarChart(insight.daily)
+                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    LegendDot("Planned", UiTokens.GoogleBlue)
+                    LegendDot("Actual", Color(0xFFEA4335))
                 }
             }
         }
         item {
             InfoCard {
-                Text("Common reasons", fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                if (insight.commonReasons.isEmpty()) {
-                    Text("No reviewed reasons yet.", color = UiTokens.InkSoft)
-                } else {
-                    insight.commonReasons.forEach {
-                        ReasonRow(it.reason, it.count.toString())
-                    }
+                Text("Common reasons", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                insight.commonReasons.forEachIndexed { index, reason ->
+                    ReasonRow(reason.reason, reason.count, ReasonColors[index % ReasonColors.size])
                 }
             }
         }
@@ -324,11 +336,99 @@ private fun InfoCard(content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-private fun ReasonRow(label: String, count: String) {
-    Row(modifier = Modifier.fillMaxWidth()) {
-        Text(label, color = UiTokens.InkSoft, modifier = Modifier.weight(1f))
-        Text(count, fontWeight = FontWeight.Bold)
+private fun WeeklyBarChart(days: List<DailyInsight>) {
+    val maxMinutes = maxOf(1, days.maxOfOrNull { maxOf(it.plannedMinutes, it.actualMinutes) } ?: 1)
+    Row(
+        modifier = Modifier.fillMaxWidth().height(200.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        days.forEach { day ->
+            DayBars(
+                day = day,
+                maxMinutes = maxMinutes,
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
+}
+
+@Composable
+private fun DayBars(
+    day: DailyInsight,
+    maxMinutes: Int,
+    modifier: Modifier = Modifier
+) {
+    val plannedHeight = barHeight(day.plannedMinutes, maxMinutes)
+    val actualHeight = barHeight(day.actualMinutes, maxMinutes)
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(158.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(UiTokens.NeutralChipBg),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            Row(
+                modifier = Modifier.padding(bottom = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(16.dp)
+                        .height(plannedHeight.dp)
+                        .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                        .background(UiTokens.GoogleBlue)
+                )
+                Box(
+                    modifier = Modifier
+                        .width(16.dp)
+                        .height(actualHeight.dp)
+                        .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                        .background(Color(0xFFEA4335))
+                )
+            }
+        }
+        Text(
+            day.date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.ENGLISH),
+            color = UiTokens.InkSoft,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun LegendDot(label: String, color: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(color))
+        Text(label, color = UiTokens.InkSoft, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun ReasonRow(label: String, count: Int, color: Color) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(color))
+        Text(label, color = UiTokens.InkSoft, modifier = Modifier.weight(1f).padding(start = 12.dp))
+        Text(count.toString(), fontWeight = FontWeight.Bold)
+    }
+}
+
+private fun barHeight(minutes: Int, maxMinutes: Int): Int {
+    if (minutes <= 0) return 0
+    return ((minutes.toFloat() / maxMinutes.toFloat()) * 132f).toInt().coerceAtLeast(8)
+}
+
+private fun formatSessionCount(count: Int): String {
+    return if (count == 1) "1 session" else "$count sessions"
 }
 
 @Composable

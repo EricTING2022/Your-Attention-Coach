@@ -189,7 +189,7 @@ fun AttentionCoachApp(
             destination = destination,
             paddingValues = padding,
             selectedDate = selectedDate,
-            tasks = tasks.filter { it.date == selectedDate },
+            tasks = tasks,
             unfinishedTaskDates = unfinishedTaskDates,
             onDateSelected = { selectedDate = it },
             onTaskSelected = {
@@ -348,7 +348,7 @@ private fun TopLevelScreen(
     when (destination) {
         TopLevelDestination.TASKS -> TodayScreen(
             selectedDate = selectedDate,
-            tasks = tasks,
+            tasks = tasks.filter { it.date == selectedDate },
             unfinishedTaskDates = unfinishedTaskDates,
             onDateSelected = onDateSelected,
             onTaskSelected = onTaskSelected,
