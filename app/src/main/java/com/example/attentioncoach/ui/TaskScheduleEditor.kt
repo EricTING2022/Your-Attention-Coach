@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -313,7 +315,29 @@ private fun CustomDurationOption(
                 value = value,
                 onValueChange = onValueChange,
                 singleLine = true,
+                placeholder = {
+                    Text(
+                        "Custom",
+                        color = UiTokens.InkSoft.copy(alpha = 0.58f),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 suffix = { Text("min", color = UiTokens.LowChipText, fontWeight = FontWeight.Bold) },
+                textStyle = TextStyle(
+                    color = if (selected) UiTokens.LowChipText else UiTokens.Ink,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                ),
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = UiTokens.LowChipText,
+                    unfocusedBorderColor = UiTokens.Outline,
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    cursorColor = UiTokens.LowChipText
+                ),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
