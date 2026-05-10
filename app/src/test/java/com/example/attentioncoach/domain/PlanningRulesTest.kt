@@ -123,6 +123,21 @@ class PlanningRulesTest {
     }
 
     @Test
+    fun softLockTriggersAnyNonNeededAppAfterCooldown() {
+        val decision = SoftLockPolicy.reentryDecision(
+            activeWorkBlock = true,
+            foregroundPackage = "com.random.reader",
+            neededPackages = setOf("com.android.chrome"),
+            leisurePackages = emptySet(),
+            nowMillis = 60_000,
+            lastNotificationMillis = 20_000
+        )
+
+        assertTrue(decision.shouldNotify)
+        assertEquals(ReentryReason.NON_NEEDED_APP, decision.reason)
+    }
+
+    @Test
     fun softLockSuppressesRepeatedLeisureNotificationInsideCooldown() {
         val decision = SoftLockPolicy.reentryDecision(
             activeWorkBlock = true,

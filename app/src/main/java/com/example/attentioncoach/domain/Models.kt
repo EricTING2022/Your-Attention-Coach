@@ -49,6 +49,7 @@ enum class ReentryReason {
     NEEDED_APP,
     NOT_LEISURE,
     LEISURE_APP,
+    NON_NEEDED_APP,
     COOLDOWN
 }
 

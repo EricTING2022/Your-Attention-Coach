@@ -74,12 +74,12 @@ object SoftLockPolicy {
         if (foregroundPackage in neededPackages) {
             return ReentryDecision(false, ReentryReason.NEEDED_APP)
         }
-        if (foregroundPackage !in leisurePackages) {
-            return ReentryDecision(false, ReentryReason.NOT_LEISURE)
-        }
         if (lastNotificationMillis != null && nowMillis - lastNotificationMillis < reentryCooldownMillis) {
             return ReentryDecision(false, ReentryReason.COOLDOWN)
         }
-        return ReentryDecision(true, ReentryReason.LEISURE_APP)
+        return ReentryDecision(
+            shouldNotify = true,
+            reason = if (foregroundPackage in leisurePackages) ReentryReason.LEISURE_APP else ReentryReason.NON_NEEDED_APP
+        )
     }
 }
