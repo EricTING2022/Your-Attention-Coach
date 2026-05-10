@@ -43,11 +43,7 @@ object DemoTaskRepository {
                 startTime = LocalTime.of(11, 0),
                 durationMinutes = 35,
                 priority = Priority.URGENT,
-                status = TaskStatus.PAUSED,
-                actualFocusMinutes = 18,
-                actualCompletion = "Not started in code.",
-                mismatchReason = "Unclear next step",
-                nextAdjustment = "Write implementation plan first."
+                status = TaskStatus.PLANNED
             ),
             PlannedTask(
                 id = 4L,

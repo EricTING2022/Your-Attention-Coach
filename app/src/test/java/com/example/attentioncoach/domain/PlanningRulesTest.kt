@@ -17,17 +17,44 @@ class PlanningRulesTest {
     }
 
     @Test
-    fun taskListKeepsPausedFirstAndCompletedTasksLastWithoutDividerGroups() {
+    fun taskListSortsByPriorityThenCreationOrder() {
         val tasks = listOf(
-            task(id = 1, title = "Design", status = TaskStatus.PLANNED),
-            task(id = 2, title = "Reviewed notes", status = TaskStatus.REVIEWED),
-            task(id = 3, title = "Skeleton", status = TaskStatus.PAUSED),
-            task(id = 4, title = "Finished report", status = TaskStatus.FINISHED)
+            task(id = 1, title = "Design", priority = Priority.IMPORTANT),
+            task(id = 2, title = "Reviewed notes", priority = Priority.NOT_URGENT),
+            task(id = 3, title = "Skeleton", priority = Priority.URGENT),
+            task(id = 4, title = "Finished report", priority = Priority.URGENT_IMPORTANT)
         )
 
         val sorted = TaskListSorter.sortForToday(tasks)
 
-        assertEquals(listOf(3L, 1L, 2L, 4L), sorted.map { it.id })
+        assertEquals(listOf(4L, 3L, 1L, 2L), sorted.map { it.id })
+    }
+
+    @Test
+    fun taskListKeepsCompletedTasksInPriorityPosition() {
+        val tasks = listOf(
+            task(id = 1, priority = Priority.IMPORTANT, status = TaskStatus.PLANNED),
+            task(id = 2, priority = Priority.URGENT_IMPORTANT, status = TaskStatus.FINISHED),
+            task(id = 3, priority = Priority.URGENT, status = TaskStatus.REVIEWED),
+            task(id = 4, priority = Priority.NOT_URGENT, status = TaskStatus.PLANNED)
+        )
+
+        val sorted = TaskListSorter.sortForToday(tasks)
+
+        assertEquals(listOf(2L, 3L, 1L, 4L), sorted.map { it.id })
+    }
+
+    @Test
+    fun taskListKeepsCreationOrderWithinSamePriority() {
+        val tasks = listOf(
+            task(id = 3, priority = Priority.IMPORTANT),
+            task(id = 1, priority = Priority.IMPORTANT),
+            task(id = 2, priority = Priority.IMPORTANT)
+        )
+
+        val sorted = TaskListSorter.sortForToday(tasks)
+
+        assertEquals(listOf(1L, 2L, 3L), sorted.map { it.id })
     }
 
     @Test
@@ -114,6 +141,7 @@ class PlanningRulesTest {
         id: Long = 1,
         title: String = "Task",
         durationMinutes: Int = 30,
+        priority: Priority = Priority.IMPORTANT,
         status: TaskStatus = TaskStatus.PLANNED
     ): PlannedTask {
         return PlannedTask(
@@ -122,7 +150,7 @@ class PlanningRulesTest {
             title = title,
             target = "Target",
             durationMinutes = durationMinutes,
-            priority = Priority.IMPORTANT,
+            priority = priority,
             status = status
         )
     }

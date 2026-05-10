@@ -44,7 +44,8 @@ Recommended implementation order:
 
 These are safe to decide before implementation:
 
-1. Completed tasks should probably stay visually lower only through strikethrough styling, not a separate section. The proposed sort keeps unfinished tasks above completed tasks, then sorts each group by priority.
-2. "Jump to the task's pre-start page" is interpreted as opening the task detail Plan page, not starting the timer immediately.
-3. Needed apps should list launchable installed apps only, not every system package, to keep Settings understandable and privacy-friendly.
-
+1. Paused should not be a persistent task status. Pause only exists inside an active focus session, and users cannot exit from the pause screen.
+2. Completed tasks should not be moved to a lower section. They stay in the same priority-sorted list position, with the title struck through.
+3. UI design should follow the visual language of official Google apps: light surfaces, clear hierarchy, Material-style spacing, restrained color accents, simple controls, and readable typography.
+4. "Jump to the task's pre-start page" is interpreted as opening the task detail Plan page, not starting the timer immediately.
+5. Needed apps should list launchable installed apps only, not every system package, to keep Settings understandable and privacy-friendly.

@@ -27,16 +27,10 @@ enum class Priority {
 
 enum class TaskStatus {
     PLANNED,
-    PAUSED,
     REVIEWED,
     FINISHED,
     MISSED
 }
-
-data class TaskGroups(
-    val open: List<PlannedTask>,
-    val completed: List<PlannedTask>
-)
 
 data class DailySummary(
     val plannedMinutes: Int,

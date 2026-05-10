@@ -17,11 +17,11 @@ class AppStateTest {
 
         assertEquals(4, mayFiveTasks.size)
         assertEquals("COMP4521 design spec", mayFiveTasks.first { it.id == 1L }.title)
-        assertEquals(TaskStatus.PAUSED, mayFiveTasks.first { it.id == 3L }.status)
+        assertEquals(TaskStatus.PLANNED, mayFiveTasks.first { it.id == 3L }.status)
     }
 
     @Test
-    fun saveReviewMarksTaskReviewedAndMovesItToCompletedGroup() {
+    fun saveReviewMarksTaskReviewed() {
         val store = AttentionCoachStore(DemoTaskRepository.seed())
 
         store.saveReview(
@@ -31,8 +31,6 @@ class AppStateTest {
             nextAdjustment = "Use 30 minutes first."
         )
 
-        val groups = TaskGrouper.group(store.tasksForDate(LocalDate.of(2026, 5, 5)))
-        assertTrue(groups.completed.any { it.id == 1L })
         assertEquals(TaskStatus.REVIEWED, store.taskById(1L)?.status)
     }
 
@@ -136,7 +134,7 @@ class AppStateTest {
     }
 
     @Test
-    fun finishWorkStoresActualFocusAndMovesTaskToCompletedGroup() {
+    fun finishWorkStoresActualFocusAndFinishedStatus() {
         val store = AttentionCoachStore(DemoTaskRepository.seed())
 
         store.startWork(taskId = 1L, nowMillis = 0L)
@@ -145,7 +143,6 @@ class AppStateTest {
         val task = store.taskById(1L)
         assertEquals(TaskStatus.FINISHED, task?.status)
         assertEquals(2, task?.actualFocusMinutes)
-        assertTrue(TaskGrouper.group(store.tasksForDate(LocalDate.of(2026, 5, 5))).completed.any { it.id == 1L })
     }
 
     @Test
@@ -207,7 +204,6 @@ class AppStateTest {
     @Test
     fun reviewIsAvailableOnlyAfterFinishOrReview() {
         assertFalse(ReviewAvailability.canReview(TaskStatus.PLANNED))
-        assertFalse(ReviewAvailability.canReview(TaskStatus.PAUSED))
         assertFalse(ReviewAvailability.canReview(TaskStatus.MISSED))
         assertTrue(ReviewAvailability.canReview(TaskStatus.FINISHED))
         assertTrue(ReviewAvailability.canReview(TaskStatus.REVIEWED))

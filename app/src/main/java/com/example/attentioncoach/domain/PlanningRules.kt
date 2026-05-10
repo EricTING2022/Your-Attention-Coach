@@ -9,27 +9,21 @@ object WeekTimeline {
     }
 }
 
-object TaskGrouper {
-    fun group(tasks: List<PlannedTask>): TaskGroups {
-        val open = tasks
-            .filterNot { it.isCompleted() }
-            .sortedWith(compareByDescending<PlannedTask> { it.status == TaskStatus.PAUSED })
-        val completed = tasks.filter { it.isCompleted() }
-        return TaskGroups(open = open, completed = completed)
-    }
-
-    private fun PlannedTask.isCompleted(): Boolean {
-        return status == TaskStatus.REVIEWED || status == TaskStatus.FINISHED
-    }
-}
-
 object TaskListSorter {
     fun sortForToday(tasks: List<PlannedTask>): List<PlannedTask> {
         return tasks.sortedWith(
-            compareByDescending<PlannedTask> { it.status == TaskStatus.PAUSED }
-                .thenBy { it.status == TaskStatus.FINISHED || it.status == TaskStatus.REVIEWED }
+            compareBy<PlannedTask> { it.priority.sortRank() }
                 .thenBy { it.id }
         )
+    }
+}
+
+private fun Priority.sortRank(): Int {
+    return when (this) {
+        Priority.URGENT_IMPORTANT -> 0
+        Priority.URGENT -> 1
+        Priority.IMPORTANT -> 2
+        Priority.NOT_URGENT -> 3
     }
 }
 
