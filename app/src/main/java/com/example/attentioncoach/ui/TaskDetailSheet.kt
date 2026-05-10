@@ -391,6 +391,7 @@ private fun PlanPage(
         TaskScheduleEditor(
             initialStartTime = startTime,
             initialDurationMinutes = duration,
+            startTimeEnabledByDefault = isCreateMode || startTime != null,
             onDismiss = { showScheduleEditor = false },
             onSave = { selectedStartTime, selectedDuration ->
                 startTime = selectedStartTime

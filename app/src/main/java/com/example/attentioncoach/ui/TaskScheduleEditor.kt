@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.attentioncoach.R
+import com.example.attentioncoach.domain.ScheduleEditorRules
 import com.example.attentioncoach.domain.ScheduleOptions
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -56,10 +57,14 @@ import java.time.LocalTime
 fun TaskScheduleEditor(
     initialStartTime: LocalTime?,
     initialDurationMinutes: Int,
+    startTimeEnabledByDefault: Boolean = initialStartTime != null,
     onDismiss: () -> Unit,
     onSave: (LocalTime?, Int) -> Unit
 ) {
     val initialWheelTime = remember(initialStartTime) { initialStartTime ?: defaultStartTime() }
+    var startTimeEnabled by remember(initialStartTime, startTimeEnabledByDefault) {
+        mutableStateOf(startTimeEnabledByDefault)
+    }
     var selectedHour by remember(initialStartTime) { mutableStateOf(initialWheelTime.hour) }
     var selectedMinute by remember(initialStartTime) { mutableStateOf((initialWheelTime.minute / 5) * 5) }
     var selectedDuration by remember(initialDurationMinutes) { mutableStateOf(initialDurationMinutes) }
@@ -104,7 +109,15 @@ fun TaskScheduleEditor(
                             .size(52.dp)
                             .clip(CircleShape)
                             .background(UiTokens.GoogleGreen)
-                            .clickable { onSave(LocalTime.of(selectedHour, selectedMinute), selectedDuration) },
+                            .clickable {
+                                onSave(
+                                    ScheduleEditorRules.savedStartTime(
+                                        startTimeEnabled = startTimeEnabled,
+                                        selectedStartTime = LocalTime.of(selectedHour, selectedMinute)
+                                    ),
+                                    selectedDuration
+                                )
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -116,35 +129,67 @@ fun TaskScheduleEditor(
                     }
                 }
 
-                Text("START TIME", color = UiTokens.LowChipText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(222.dp),
+                        .height(78.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     shape = RoundedCornerShape(24.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(78.dp)
+                            .padding(horizontal = 18.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        WheelColumn(
-                            values = ScheduleOptions.hours,
-                            selectedValue = selectedHour,
-                            label = { it.toString() },
-                            state = hourListState,
-                            onSelected = { selectedHour = it },
-                            modifier = Modifier.weight(1f)
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("START TIME", color = UiTokens.LowChipText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                if (startTimeEnabled) LocalTime.of(selectedHour, selectedMinute).shortTimeLabel() else "No reminder",
+                                color = UiTokens.Ink,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        StartTimeToggle(
+                            enabled = startTimeEnabled,
+                            onToggle = { startTimeEnabled = !startTimeEnabled }
                         )
-                        WheelColumn(
-                            values = ScheduleOptions.minutes,
-                            selectedValue = selectedMinute,
-                            label = { it.toString().padStart(2, '0') },
-                            state = minuteListState,
-                            onSelected = { selectedMinute = it },
-                            modifier = Modifier.weight(1f)
-                        )
+                    }
+                }
+                if (startTimeEnabled) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(222.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        shape = RoundedCornerShape(24.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            WheelColumn(
+                                values = ScheduleOptions.hours,
+                                selectedValue = selectedHour,
+                                label = { it.toString() },
+                                state = hourListState,
+                                onSelected = { selectedHour = it },
+                                modifier = Modifier.weight(1f)
+                            )
+                            WheelColumn(
+                                values = ScheduleOptions.minutes,
+                                selectedValue = selectedMinute,
+                                label = { it.toString().padStart(2, '0') },
+                                state = minuteListState,
+                                onSelected = { selectedMinute = it },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
 
@@ -165,6 +210,26 @@ fun TaskScheduleEditor(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun StartTimeToggle(enabled: Boolean, onToggle: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(width = 58.dp, height = 34.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .background(if (enabled) UiTokens.GoogleGreen else UiTokens.InkSoft.copy(alpha = 0.42f))
+            .clickable(onClick = onToggle)
+            .padding(3.dp),
+        contentAlignment = if (enabled) Alignment.CenterEnd else Alignment.CenterStart
+    ) {
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(Color.White)
+        )
     }
 }
 

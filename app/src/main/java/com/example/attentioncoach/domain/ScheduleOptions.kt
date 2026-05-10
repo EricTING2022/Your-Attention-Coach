@@ -21,3 +21,9 @@ object ScheduleOptions {
             ?.takeIf { it > 0 }
     }
 }
+
+object ScheduleEditorRules {
+    fun savedStartTime(startTimeEnabled: Boolean, selectedStartTime: LocalTime): LocalTime? {
+        return if (startTimeEnabled) selectedStartTime else null
+    }
+}

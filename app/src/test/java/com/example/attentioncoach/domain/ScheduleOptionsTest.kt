@@ -37,4 +37,24 @@ class ScheduleOptionsTest {
         assertEquals(null, ScheduleOptions.customDurationFromInput("0"))
         assertEquals(null, ScheduleOptions.customDurationFromInput("abc"))
     }
+
+    @Test
+    fun disabledStartTimeSavesNull() {
+        val saved = ScheduleEditorRules.savedStartTime(
+            startTimeEnabled = false,
+            selectedStartTime = LocalTime.of(7, 50)
+        )
+
+        assertEquals(null, saved)
+    }
+
+    @Test
+    fun enabledStartTimeSavesSelectedTime() {
+        val saved = ScheduleEditorRules.savedStartTime(
+            startTimeEnabled = true,
+            selectedStartTime = LocalTime.of(7, 50)
+        )
+
+        assertEquals(LocalTime.of(7, 50), saved)
+    }
 }
