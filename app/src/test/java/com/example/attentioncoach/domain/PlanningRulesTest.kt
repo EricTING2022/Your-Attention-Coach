@@ -46,6 +46,26 @@ class PlanningRulesTest {
     }
 
     @Test
+    fun dateIndicatorShowsBlueDotWhenAnyTaskIsUnfinished() {
+        val tasks = listOf(
+            task(id = 1, status = TaskStatus.FINISHED),
+            task(id = 2, status = TaskStatus.PLANNED)
+        )
+
+        assertTrue(DateIndicatorRules.hasUnfinishedTaskDot(tasks))
+    }
+
+    @Test
+    fun dateIndicatorHidesDotWhenAllTasksAreComplete() {
+        val tasks = listOf(
+            task(id = 1, status = TaskStatus.FINISHED),
+            task(id = 2, status = TaskStatus.REVIEWED)
+        )
+
+        assertFalse(DateIndicatorRules.hasUnfinishedTaskDot(tasks))
+    }
+
+    @Test
     fun softLockAllowsNeededAppsWithoutReentryNotification() {
         val decision = SoftLockPolicy.reentryDecision(
             activeWorkBlock = true,

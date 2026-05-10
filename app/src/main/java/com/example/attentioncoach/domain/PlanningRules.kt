@@ -49,6 +49,12 @@ object SummaryCalculator {
     }
 }
 
+object DateIndicatorRules {
+    fun hasUnfinishedTaskDot(tasks: List<PlannedTask>): Boolean {
+        return tasks.any { it.status != TaskStatus.FINISHED && it.status != TaskStatus.REVIEWED }
+    }
+}
+
 object FocusMonitorCadence {
     const val POLL_INTERVAL_MILLIS = 5_000L
     const val USAGE_LOOKBACK_MILLIS = 15_000L
