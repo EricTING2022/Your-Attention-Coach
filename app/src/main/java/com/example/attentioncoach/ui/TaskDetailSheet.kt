@@ -1,6 +1,5 @@
 package com.example.attentioncoach.ui
 
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -56,6 +55,7 @@ import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.Priority
 import com.example.attentioncoach.domain.ReviewAvailability
 import com.example.attentioncoach.domain.TaskStatus
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalTime
 
@@ -73,12 +73,20 @@ fun TaskDetailSheet(
     var title by remember(task.id) { mutableStateOf(task.title) }
     var taskMenuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var showScheduleSaved by remember { mutableStateOf(false) }
     val canReview = !isCreateMode && ReviewAvailability.canReview(task.status)
     val pagerState = rememberPagerState(pageCount = { if (canReview) 2 else 1 })
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(canReview) {
         if (!canReview) pagerState.scrollToPage(0)
+    }
+
+    LaunchedEffect(showScheduleSaved) {
+        if (showScheduleSaved) {
+            delay(1600)
+            showScheduleSaved = false
+        }
     }
 
     if (confirmDelete) {
@@ -212,6 +220,7 @@ fun TaskDetailSheet(
                                         onTitleChange = { title = it },
                                         onSavePlan = onSavePlan,
                                         onCreateTask = onCreateTask,
+                                        onScheduleSaved = { showScheduleSaved = true },
                                         onStartWork = onStartWork
                                     )
                                 } else {
@@ -233,10 +242,23 @@ fun TaskDetailSheet(
                                 onTitleChange = { title = it },
                                 onSavePlan = onSavePlan,
                                 onCreateTask = onCreateTask,
+                                onScheduleSaved = { showScheduleSaved = true },
                                 onStartWork = onStartWork
                             )
                         }
                     }
+                }
+            }
+            if (showScheduleSaved) {
+                Box(
+                    modifier = Modifier
+                        .align(androidx.compose.ui.Alignment.BottomCenter)
+                        .padding(bottom = 28.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(UiTokens.Ink)
+                        .padding(horizontal = 18.dp, vertical = 12.dp)
+                ) {
+                    Text("Schedule is saved", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -269,6 +291,7 @@ private fun PlanPage(
     onTitleChange: (String) -> Unit,
     onSavePlan: (PlannedTask) -> Unit,
     onCreateTask: (PlannedTask) -> Unit,
+    onScheduleSaved: () -> Unit,
     onStartWork: (Long) -> Unit
 ) {
     var target by remember(task.id) { mutableStateOf(task.target) }
@@ -278,7 +301,6 @@ private fun PlanPage(
     var priorityOpen by remember { mutableStateOf(false) }
     var showScheduleEditor by remember { mutableStateOf(false) }
     val priorityScroll = rememberScrollState()
-    val context = LocalContext.current
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         if (isCreateMode) {
@@ -384,8 +406,8 @@ private fun PlanPage(
                         )
                     )
                 }
-                Toast.makeText(context, "Schedule is saved", Toast.LENGTH_SHORT).show()
                 showScheduleEditor = false
+                onScheduleSaved()
             }
         )
     }
