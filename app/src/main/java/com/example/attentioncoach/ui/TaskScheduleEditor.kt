@@ -19,6 +19,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -35,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.TextStyle
@@ -43,6 +46,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.attentioncoach.R
 import com.example.attentioncoach.domain.ScheduleOptions
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -78,15 +82,19 @@ fun TaskScheduleEditor(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "<",
-                        fontSize = 30.sp,
-                        fontWeight = FontWeight.Bold,
+                    IconButton(
+                        onClick = onDismiss,
                         modifier = Modifier
+                            .size(44.dp)
                             .clip(CircleShape)
-                            .clickable(onClick = onDismiss)
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                    )
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_chevron_left_24),
+                            contentDescription = "Back",
+                            tint = UiTokens.Ink,
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
                     Column(Modifier.weight(1f)) {
                         Text("SCHEDULE", color = UiTokens.InkSoft, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         Text("Set time", fontSize = 30.sp, fontWeight = FontWeight.Bold)
@@ -99,7 +107,12 @@ fun TaskScheduleEditor(
                             .clickable { onSave(LocalTime.of(selectedHour, selectedMinute), selectedDuration) },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("✓", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                        Icon(
+                            painter = painterResource(R.drawable.ic_check_24),
+                            contentDescription = "Save schedule",
+                            tint = Color.White,
+                            modifier = Modifier.size(32.dp)
+                        )
                     }
                 }
 

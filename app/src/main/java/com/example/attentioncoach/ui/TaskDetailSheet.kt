@@ -28,6 +28,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -43,11 +45,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.attentioncoach.R
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.Priority
 import com.example.attentioncoach.domain.ReviewAvailability
@@ -125,7 +129,17 @@ fun TaskDetailSheet(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text("<", fontSize = 30.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onDismiss))
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_chevron_left_24),
+                                contentDescription = "Back",
+                                tint = UiTokens.Ink,
+                                modifier = Modifier.size(30.dp)
+                            )
+                        }
                         Column(Modifier.weight(1f)) {
                             Text(task.date.shortMonthDay().uppercase(), color = UiTokens.InkSoft, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             Text(
@@ -137,12 +151,14 @@ fun TaskDetailSheet(
                         }
                         if (!isCreateMode) {
                             Box {
-                                Text(
-                                    "...",
-                                    fontSize = 28.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.clickable { taskMenuOpen = true }
-                                )
+                                IconButton(onClick = { taskMenuOpen = true }, modifier = Modifier.size(44.dp)) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_more_horiz_24),
+                                        contentDescription = "Task actions",
+                                        tint = UiTokens.Ink,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
                                 DropdownMenu(
                                     expanded = taskMenuOpen,
                                     onDismissRequest = { taskMenuOpen = false }
@@ -439,7 +455,12 @@ private fun PriorityField(priority: Priority, onClick: () -> Unit) {
                     .background(priority.chipBg())
                     .padding(horizontal = 12.dp, vertical = 8.dp)
             )
-            Text("v", color = UiTokens.InkSoft, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Icon(
+                painter = painterResource(R.drawable.ic_expand_more_24),
+                contentDescription = null,
+                tint = UiTokens.InkSoft,
+                modifier = Modifier.size(24.dp)
+            )
         }
     }
 }

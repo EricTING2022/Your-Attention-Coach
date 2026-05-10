@@ -24,8 +24,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -443,13 +441,28 @@ private fun DatePickerSheet(
                         Text("${pickerMonth.year}", color = UiTokens.DateAccent, fontSize = 30.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.width(5.dp))
                         Text(pickerMonth.month.name.lowercase().replaceFirstChar { it.uppercase() }.take(3), fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                        Text(if (wheelMode) " v" else " >", color = UiTokens.DateAccent, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                        Icon(
+                            painter = painterResource(
+                                if (wheelMode) R.drawable.ic_expand_more_24 else R.drawable.ic_chevron_right_24
+                            ),
+                            contentDescription = null,
+                            tint = UiTokens.DateAccent,
+                            modifier = Modifier.size(30.dp)
+                        )
                     }
-                    Button(
+                    IconButton(
                         onClick = onDismiss,
-                        colors = ButtonDefaults.buttonColors(containerColor = UiTokens.Page, contentColor = UiTokens.Ink)
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(UiTokens.Page)
                     ) {
-                        Text("X")
+                        Icon(
+                            painter = painterResource(R.drawable.ic_close_24),
+                            contentDescription = "Close date picker",
+                            tint = UiTokens.Ink,
+                            modifier = Modifier.size(26.dp)
+                        )
                     }
                 }
                 Spacer(Modifier.height(18.dp))
