@@ -13,4 +13,14 @@ object ReminderRules {
     fun triggerAtMillis(date: LocalDate, startTime: LocalTime, zoneId: ZoneId): Long {
         return ZonedDateTime.of(date, startTime, zoneId).toInstant().toEpochMilli()
     }
+
+    fun futureTriggerAtMillisOrNull(
+        date: LocalDate,
+        startTime: LocalTime,
+        zoneId: ZoneId,
+        nowMillis: Long
+    ): Long? {
+        val triggerAtMillis = triggerAtMillis(date, startTime, zoneId)
+        return triggerAtMillis.takeIf { it > nowMillis }
+    }
 }

@@ -31,4 +31,19 @@ class ReminderRulesTest {
         assertFalse(ReminderRules.isSchedulable(null))
         assertTrue(ReminderRules.isSchedulable(LocalTime.of(9, 0)))
     }
+
+    @Test
+    fun pastStartTimeDoesNotCreateTriggerMillis() {
+        val zone = ZoneId.of("America/Los_Angeles")
+        val nowMillis = ZonedDateTime.of(2026, 5, 11, 2, 30, 0, 0, zone).toInstant().toEpochMilli()
+
+        val triggerMillis = ReminderRules.futureTriggerAtMillisOrNull(
+            date = LocalDate.of(2026, 5, 6),
+            startTime = LocalTime.of(2, 35),
+            zoneId = zone,
+            nowMillis = nowMillis
+        )
+
+        assertEquals(null, triggerMillis)
+    }
 }

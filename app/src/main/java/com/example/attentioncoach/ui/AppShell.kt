@@ -47,7 +47,9 @@ import java.time.LocalDate
 @Composable
 fun AttentionCoachApp(
     reentryTaskId: Long? = null,
-    onReentryConsumed: () -> Unit = {}
+    onReentryConsumed: () -> Unit = {},
+    scheduledReminderTaskId: Long? = null,
+    onScheduledReminderConsumed: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val initialTasks = remember { DemoTaskRepository.seed() }
@@ -76,7 +78,12 @@ fun AttentionCoachApp(
     }
 
     fun scheduleReminderIfNeeded(task: PlannedTask) {
-        if (reminderScheduler.schedule(task) == ReminderScheduleResult.NEEDS_EXACT_ALARM_PERMISSION) {
+        if (
+            reminderScheduler.schedule(
+                task = task,
+                repeatIntervalSeconds = appSettings.notificationIntervalSeconds
+            ) == ReminderScheduleResult.NEEDS_EXACT_ALARM_PERMISSION
+        ) {
             showAlarmPermissionPrompt = true
         }
     }
@@ -91,6 +98,16 @@ fun AttentionCoachApp(
             reentryOpen = true
         }
         onReentryConsumed()
+    }
+
+    LaunchedEffect(scheduledReminderTaskId) {
+        val taskId = scheduledReminderTaskId ?: return@LaunchedEffect
+        if (tasks.any { it.id == taskId }) {
+            destination = TopLevelDestination.TASKS
+            selectedTaskId = taskId
+            draftTask = null
+        }
+        onScheduledReminderConsumed()
     }
 
     LaunchedEffect(activeWorkTask?.id, activeWork?.isPaused) {
