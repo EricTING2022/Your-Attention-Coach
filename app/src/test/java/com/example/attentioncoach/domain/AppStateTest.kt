@@ -91,6 +91,29 @@ class AppStateTest {
     }
 
     @Test
+    fun createdTaskScheduleCanBeEditedAfterCreation() {
+        val store = AttentionCoachStore(DemoTaskRepository.seed())
+        val created = store.createTask(
+            date = LocalDate.of(2026, 5, 10),
+            title = "Editable schedule",
+            startTime = LocalTime.of(9, 0),
+            durationMinutes = 30
+        )
+
+        store.updatePlan(
+            taskId = created.id,
+            target = created.target,
+            startTime = LocalTime.of(17, 5),
+            durationMinutes = 45,
+            priority = created.priority
+        )
+
+        val reopened = store.taskById(created.id)
+        assertEquals(LocalTime.of(17, 5), reopened?.startTime)
+        assertEquals(45, reopened?.durationMinutes)
+    }
+
+    @Test
     fun newTasksUseBlankReviewReasonByDefault() {
         val store = AttentionCoachStore(DemoTaskRepository.seed())
 
