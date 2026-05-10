@@ -11,9 +11,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,14 +22,18 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
@@ -38,6 +42,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.attentioncoach.domain.ScheduleOptions
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import java.time.LocalTime
 
 @Composable
@@ -54,8 +60,8 @@ fun TaskScheduleEditor(
     var customDurationText by remember(initialDurationMinutes) {
         mutableStateOf(if (initialDurationMinutes in ScheduleOptions.durationMinutes) "" else initialDurationMinutes.toString())
     }
-    val hourListState = rememberLazyListState(initialFirstVisibleItemIndex = (selectedHour - 2).coerceAtLeast(0))
-    val minuteListState = rememberLazyListState(initialFirstVisibleItemIndex = ((selectedMinute / 5) - 2).coerceAtLeast(0))
+    val hourListState = rememberLazyListState(initialFirstVisibleItemIndex = selectedHour)
+    val minuteListState = rememberLazyListState(initialFirstVisibleItemIndex = selectedMinute / 5)
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -99,13 +105,13 @@ fun TaskScheduleEditor(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(238.dp),
+                        .height(222.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     shape = RoundedCornerShape(24.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         WheelColumn(
@@ -156,27 +162,68 @@ private fun WheelColumn(
     onSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    LazyColumn(
-        state = state,
-        modifier = modifier.height(218.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        items(values) { value ->
-            val selected = value == selectedValue
-            Text(
-                text = label(value),
-                color = if (selected) UiTokens.LowChipText else UiTokens.InkSoft.copy(alpha = 0.55f),
-                fontSize = if (selected) 24.sp else 21.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(if (selected) UiTokens.LowChipBg else Color.Transparent)
-                    .clickable { onSelected(value) }
-                    .padding(vertical = 11.dp)
-            )
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val wheelHeight = 210.dp
+    val itemHeight = 54.dp
+    val centerPadding = (wheelHeight - itemHeight) / 2
+    val itemHeightPx = with(density) { itemHeight.roundToPx() }
+
+    fun centeredIndex(): Int {
+        val offsetIndex = if (state.firstVisibleItemScrollOffset > itemHeightPx / 2) 1 else 0
+        return (state.firstVisibleItemIndex + offsetIndex).coerceIn(values.indices)
+    }
+
+    LaunchedEffect(state, values) {
+        snapshotFlow { state.firstVisibleItemIndex to state.firstVisibleItemScrollOffset }
+            .collect {
+                onSelected(values[centeredIndex()])
+            }
+    }
+
+    LaunchedEffect(state, values) {
+        snapshotFlow { state.isScrollInProgress }
+            .distinctUntilChanged()
+            .collect { isScrolling ->
+                if (!isScrolling) {
+                    state.animateScrollToItem(centeredIndex())
+                }
+            }
+    }
+
+    Box(modifier = modifier.height(wheelHeight), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(itemHeight)
+                .clip(RoundedCornerShape(999.dp))
+                .background(UiTokens.LowChipBg)
+        )
+        LazyColumn(
+            state = state,
+            modifier = Modifier.height(wheelHeight),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = centerPadding),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            itemsIndexed(values) { index, value ->
+                val selected = value == selectedValue
+                Text(
+                    text = label(value),
+                    color = if (selected) UiTokens.LowChipText else UiTokens.InkSoft.copy(alpha = 0.55f),
+                    fontSize = if (selected) 24.sp else 21.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(itemHeight)
+                        .clip(RoundedCornerShape(999.dp))
+                        .clickable {
+                            onSelected(value)
+                            scope.launch { state.animateScrollToItem(index) }
+                        }
+                        .padding(vertical = 11.dp)
+                )
+            }
         }
     }
 }
