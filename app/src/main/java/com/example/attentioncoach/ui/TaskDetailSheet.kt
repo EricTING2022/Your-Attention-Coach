@@ -2,6 +2,7 @@ package com.example.attentioncoach.ui
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -380,6 +381,7 @@ private fun ScheduleField(startTime: LocalTime?, durationMinutes: Int, onClick: 
         modifier = Modifier
             .fillMaxWidth()
             .height(78.dp)
+            .border(1.dp, UiTokens.Outline.copy(alpha = 0.7f), RoundedCornerShape(18.dp))
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color.White),
         shape = RoundedCornerShape(18.dp),
@@ -413,6 +415,7 @@ private fun PriorityField(priority: Priority, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .height(78.dp)
+            .border(1.dp, UiTokens.Outline.copy(alpha = 0.7f), RoundedCornerShape(18.dp))
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(18.dp),
@@ -443,9 +446,9 @@ private fun PriorityField(priority: Priority, onClick: () -> Unit) {
 
 @Composable
 private fun ScheduleSummaryValue(label: String, value: String, modifier: Modifier = Modifier) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.Center) {
-        Text(label, color = UiTokens.LowChipText, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-        Text(value, color = UiTokens.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Text(label, color = UiTokens.LowChipText, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(value, color = UiTokens.Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }
 
