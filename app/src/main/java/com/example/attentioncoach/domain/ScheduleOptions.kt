@@ -12,4 +12,12 @@ object ScheduleOptions {
             LocalTime.MIDNIGHT.plusMinutes(minuteOfDay.toLong())
         }
     }
+
+    fun customDurationFromInput(input: String): Int? {
+        return input
+            .filter(Char::isDigit)
+            .take(3)
+            .toIntOrNull()
+            ?.takeIf { it > 0 }
+    }
 }

@@ -13,13 +13,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,6 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,6 +51,9 @@ fun TaskScheduleEditor(
     var selectedHour by remember(initialStartTime) { mutableStateOf(initialWheelTime.hour) }
     var selectedMinute by remember(initialStartTime) { mutableStateOf((initialWheelTime.minute / 5) * 5) }
     var selectedDuration by remember(initialDurationMinutes) { mutableStateOf(initialDurationMinutes) }
+    var customDurationText by remember(initialDurationMinutes) {
+        mutableStateOf(if (initialDurationMinutes in ScheduleOptions.durationMinutes) "" else initialDurationMinutes.toString())
+    }
     val hourListState = rememberLazyListState(initialFirstVisibleItemIndex = (selectedHour - 2).coerceAtLeast(0))
     val minuteListState = rememberLazyListState(initialFirstVisibleItemIndex = ((selectedMinute / 5) - 2).coerceAtLeast(0))
 
@@ -122,16 +127,21 @@ fun TaskScheduleEditor(
                     }
                 }
 
-                Text("Duration", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(ScheduleOptions.durationMinutes) { minutes ->
-                        DurationOption(
-                            minutes = minutes,
-                            selected = selectedDuration == minutes,
-                            onClick = { selectedDuration = minutes }
-                        )
+                Text("DURATION", color = UiTokens.LowChipText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                DurationGrid(
+                    selectedDuration = selectedDuration,
+                    customDurationText = customDurationText,
+                    onPresetSelected = {
+                        selectedDuration = it
+                        customDurationText = ""
+                    },
+                    onCustomChanged = { value ->
+                        customDurationText = value.filter(Char::isDigit).take(3)
+                        ScheduleOptions.customDurationFromInput(customDurationText)?.let {
+                            selectedDuration = it
+                        }
                     }
-                }
+                )
             }
         }
     }
@@ -177,42 +187,89 @@ private fun defaultStartTime(): LocalTime {
 }
 
 @Composable
-private fun TimeOption(text: String, selected: Boolean, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(if (selected) UiTokens.LowChipBg else androidx.compose.ui.graphics.Color.White)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 13.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .clip(RoundedCornerShape(999.dp))
-                .background(if (selected) UiTokens.LowChipText else UiTokens.Outline)
-        )
-        Text(
-            text = text,
-            color = if (selected) UiTokens.LowChipText else UiTokens.Ink,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 12.dp)
-        )
+private fun DurationGrid(
+    selectedDuration: Int,
+    customDurationText: String,
+    onPresetSelected: (Int) -> Unit,
+    onCustomChanged: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            ScheduleOptions.durationMinutes.take(3).forEach { minutes ->
+                DurationOption(
+                    minutes = minutes,
+                    selected = selectedDuration == minutes,
+                    onClick = { onPresetSelected(minutes) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            ScheduleOptions.durationMinutes.drop(3).forEach { minutes ->
+                DurationOption(
+                    minutes = minutes,
+                    selected = selectedDuration == minutes,
+                    onClick = { onPresetSelected(minutes) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            CustomDurationOption(
+                value = customDurationText,
+                selected = customDurationText.isNotBlank() && selectedDuration !in ScheduleOptions.durationMinutes,
+                onValueChange = onCustomChanged,
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 }
 
 @Composable
-private fun DurationOption(minutes: Int, selected: Boolean, onClick: () -> Unit) {
-    Text(
-        text = "${minutes} min",
-        color = if (selected) UiTokens.LowChipText else UiTokens.InkSoft,
-        fontWeight = FontWeight.Bold,
+private fun DurationOption(minutes: Int, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Card(
         modifier = Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(if (selected) UiTokens.LowChipBg else androidx.compose.ui.graphics.Color.White)
+            .then(modifier)
+            .height(70.dp)
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp)
-    )
+            .clip(RoundedCornerShape(18.dp)),
+        colors = CardDefaults.cardColors(containerColor = if (selected) UiTokens.LowChipBg else Color.White),
+        shape = RoundedCornerShape(18.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().height(70.dp)) {
+            Text(
+                text = "${minutes} min",
+                color = if (selected) UiTokens.LowChipText else UiTokens.Ink,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun CustomDurationOption(
+    value: String,
+    selected: Boolean,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = Modifier
+            .then(modifier)
+            .height(70.dp),
+        colors = CardDefaults.cardColors(containerColor = if (selected) UiTokens.LowChipBg else Color.White),
+        shape = RoundedCornerShape(18.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().height(70.dp).padding(horizontal = 8.dp)) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                singleLine = true,
+                suffix = { Text("min", color = UiTokens.LowChipText, fontWeight = FontWeight.Bold) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
 }

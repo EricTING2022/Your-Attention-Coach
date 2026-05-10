@@ -29,4 +29,12 @@ class ScheduleOptionsTest {
     fun minuteOptionsUseFiveMinuteSteps() {
         assertEquals(listOf(0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55), ScheduleOptions.minutes)
     }
+
+    @Test
+    fun customDurationInputKeepsPositiveMinuteDigitsOnly() {
+        assertEquals(50, ScheduleOptions.customDurationFromInput("50 min"))
+        assertEquals(123, ScheduleOptions.customDurationFromInput("1234"))
+        assertEquals(null, ScheduleOptions.customDurationFromInput("0"))
+        assertEquals(null, ScheduleOptions.customDurationFromInput("abc"))
+    }
 }
