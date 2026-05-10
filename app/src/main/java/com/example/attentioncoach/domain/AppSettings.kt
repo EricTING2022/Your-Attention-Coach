@@ -34,3 +34,22 @@ object AppSettingsRules {
         return settings.copy(notificationIntervalSeconds = seconds)
     }
 }
+
+object SettingsDisplayRules {
+    fun whitelistSummary(count: Int): String {
+        return when (count) {
+            0 -> "No apps"
+            1 -> "1 app"
+            else -> "$count apps"
+        }
+    }
+
+    fun intervalLabel(seconds: Int): String {
+        return if (seconds < 60) {
+            "${seconds}s"
+        } else {
+            val minutes = seconds / 60
+            "$minutes min"
+        }
+    }
+}

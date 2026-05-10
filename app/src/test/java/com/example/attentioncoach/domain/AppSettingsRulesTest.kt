@@ -42,4 +42,20 @@ class AppSettingsRulesTest {
         assertEquals(60, AppSettingsRules.withNotificationInterval(settings, 60).notificationIntervalSeconds)
         assertEquals(30, AppSettingsRules.withNotificationInterval(settings, 45).notificationIntervalSeconds)
     }
+
+    @Test
+    fun whitelistSummaryReflectsCurrentAppCount() {
+        assertEquals("No apps", SettingsDisplayRules.whitelistSummary(0))
+        assertEquals("1 app", SettingsDisplayRules.whitelistSummary(1))
+        assertEquals("2 apps", SettingsDisplayRules.whitelistSummary(2))
+        assertEquals("4 apps", SettingsDisplayRules.whitelistSummary(4))
+    }
+
+    @Test
+    fun notificationIntervalLabelReflectsCurrentSeconds() {
+        assertEquals("30s", SettingsDisplayRules.intervalLabel(30))
+        assertEquals("1 min", SettingsDisplayRules.intervalLabel(60))
+        assertEquals("2 min", SettingsDisplayRules.intervalLabel(120))
+        assertEquals("5 min", SettingsDisplayRules.intervalLabel(300))
+    }
 }
