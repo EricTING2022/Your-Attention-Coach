@@ -355,6 +355,8 @@ private fun TopLevelScreen(
         )
 
         TopLevelDestination.INSIGHTS -> InsightsScreen(
+            tasks = tasks,
+            selectedDate = selectedDate,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)

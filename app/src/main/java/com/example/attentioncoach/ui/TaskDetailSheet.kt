@@ -54,6 +54,7 @@ import com.example.attentioncoach.R
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.Priority
 import com.example.attentioncoach.domain.ReviewAvailability
+import com.example.attentioncoach.domain.ReviewReasonOptions
 import com.example.attentioncoach.domain.TaskStatus
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -529,6 +530,12 @@ private fun ReviewPage(
         FieldLabel("Actual completion", UiTokens.GoogleBlue)
         OutlinedTextField(value = completion, onValueChange = { completion = it }, minLines = 3, modifier = Modifier.fillMaxWidth())
         FieldLabel("Reason", UiTokens.LowChipText)
+        ReasonPresetRows(
+            selectedReason = reason,
+            onReasonSelected = {
+                reason = if (it == "Other") "" else it
+            }
+        )
         OutlinedTextField(value = reason, onValueChange = { reason = it }, modifier = Modifier.fillMaxWidth())
         FieldLabel("Next adjustment", UiTokens.UrgentChipText)
         OutlinedTextField(value = adjustment, onValueChange = { adjustment = it }, minLines = 3, modifier = Modifier.fillMaxWidth())
@@ -538,6 +545,35 @@ private fun ReviewPage(
             modifier = Modifier.fillMaxWidth().height(54.dp)
         ) {
             Text("Save review", fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun ReasonPresetRows(selectedReason: String, onReasonSelected: (String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ReviewReasonOptions.presets.chunked(2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                row.forEach { reason ->
+                    val selected = reason == selectedReason || (reason == "Other" && selectedReason.isBlank())
+                    Text(
+                        text = reason,
+                        color = if (selected) UiTokens.GoogleBlue else UiTokens.InkSoft,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(if (selected) UiTokens.ImportantChipBg else Color.White)
+                            .border(1.dp, UiTokens.Outline.copy(alpha = 0.55f), RoundedCornerShape(999.dp))
+                            .clickable { onReasonSelected(reason) }
+                            .padding(horizontal = 10.dp, vertical = 9.dp)
+                    )
+                }
+                if (row.size == 1) {
+                    Spacer(Modifier.weight(1f))
+                }
+            }
         }
     }
 }
