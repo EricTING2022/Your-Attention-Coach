@@ -59,7 +59,11 @@ class FocusMonitorService : Service() {
             taskId = taskId,
             taskTitle = taskTitle,
             neededPackages = intent.getStringArrayExtra(EXTRA_NEEDED_PACKAGES)?.toSet().orEmpty(),
-            leisurePackages = intent.getStringArrayExtra(EXTRA_LEISURE_PACKAGES)?.toSet().orEmpty()
+                leisurePackages = intent.getStringArrayExtra(EXTRA_LEISURE_PACKAGES)?.toSet().orEmpty(),
+                reentryCooldownMillis = intent.getLongExtra(
+                    EXTRA_REENTRY_COOLDOWN_MILLIS,
+                    FocusMonitorCadence.REENTRY_COOLDOWN_MILLIS
+                )
         )
         lastNotificationMillis = null
         startForeground(ACTIVE_WORK_NOTIFICATION_ID, notifier.buildActiveWorkNotification(taskId, taskTitle))
@@ -95,7 +99,8 @@ class FocusMonitorService : Service() {
             neededPackages = activeSession.neededPackages,
             leisurePackages = activeSession.leisurePackages,
             nowMillis = nowMillis,
-            lastNotificationMillis = lastNotificationMillis
+            lastNotificationMillis = lastNotificationMillis,
+            reentryCooldownMillis = activeSession.reentryCooldownMillis
         )
         if (decision.shouldNotify) {
             lastNotificationMillis = nowMillis
@@ -110,13 +115,9 @@ class FocusMonitorService : Service() {
         private const val EXTRA_TASK_TITLE = "task_title"
         private const val EXTRA_NEEDED_PACKAGES = "needed_packages"
         private const val EXTRA_LEISURE_PACKAGES = "leisure_packages"
+        private const val EXTRA_REENTRY_COOLDOWN_MILLIS = "reentry_cooldown_millis"
         private const val INVALID_TASK_ID = -1L
         private const val ACTIVE_WORK_NOTIFICATION_ID = 4520
-
-        private val DEFAULT_NEEDED_PACKAGES = arrayOf(
-            "com.android.chrome",
-            "com.google.android.apps.docs"
-        )
 
         private val DEFAULT_LEISURE_PACKAGES = arrayOf(
             "com.google.android.youtube",
@@ -125,13 +126,19 @@ class FocusMonitorService : Service() {
             "com.instagram.android"
         )
 
-        fun start(context: Context, task: PlannedTask) {
+        fun start(
+            context: Context,
+            task: PlannedTask,
+            neededPackages: Set<String>,
+            reentryCooldownMillis: Long
+        ) {
             val intent = Intent(context, FocusMonitorService::class.java).apply {
                 action = ACTION_START
                 putExtra(EXTRA_TASK_ID, task.id)
                 putExtra(EXTRA_TASK_TITLE, task.title)
-                putExtra(EXTRA_NEEDED_PACKAGES, DEFAULT_NEEDED_PACKAGES)
+                putExtra(EXTRA_NEEDED_PACKAGES, neededPackages.toTypedArray())
                 putExtra(EXTRA_LEISURE_PACKAGES, DEFAULT_LEISURE_PACKAGES)
+                putExtra(EXTRA_REENTRY_COOLDOWN_MILLIS, reentryCooldownMillis)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -153,5 +160,6 @@ private data class MonitorSession(
     val taskId: Long,
     val taskTitle: String,
     val neededPackages: Set<String>,
-    val leisurePackages: Set<String>
+    val leisurePackages: Set<String>,
+    val reentryCooldownMillis: Long
 )

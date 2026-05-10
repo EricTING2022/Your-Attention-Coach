@@ -38,6 +38,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.attentioncoach.domain.ActiveWork
+import com.example.attentioncoach.domain.NeededApp
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.WorkSessionClock
 import kotlinx.coroutines.delay
@@ -49,6 +50,7 @@ fun WorkScreen(
     onPause: () -> Unit,
     onFinish: () -> Unit,
     onExit: () -> Unit,
+    neededApps: List<NeededApp>,
     onNeededAppSelected: (String) -> Unit
 ) {
     var showExitConfirm by remember { mutableStateOf(false) }
@@ -119,12 +121,12 @@ fun WorkScreen(
                         Text("Needed apps", fontWeight = FontWeight.Bold)
                     }
                     DropdownMenu(expanded = neededMenuOpen, onDismissRequest = { neededMenuOpen = false }) {
-                        listOf("com.android.chrome" to "Chrome", "com.google.android.apps.docs" to "Docs").forEach { app ->
+                        neededApps.forEach { app ->
                             DropdownMenuItem(
-                                text = { Text(app.second) },
+                                text = { Text(app.label) },
                                 onClick = {
                                     neededMenuOpen = false
-                                    onNeededAppSelected(app.first)
+                                    onNeededAppSelected(app.packageName)
                                 }
                             )
                         }

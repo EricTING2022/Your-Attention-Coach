@@ -64,7 +64,8 @@ object SoftLockPolicy {
         neededPackages: Set<String>,
         leisurePackages: Set<String>,
         nowMillis: Long,
-        lastNotificationMillis: Long?
+        lastNotificationMillis: Long?,
+        reentryCooldownMillis: Long = FocusMonitorCadence.REENTRY_COOLDOWN_MILLIS
     ): ReentryDecision {
         if (!activeWorkBlock) return ReentryDecision(false, ReentryReason.INACTIVE)
         if (foregroundPackage == null || foregroundPackage == APP_PACKAGE) {
@@ -76,7 +77,7 @@ object SoftLockPolicy {
         if (foregroundPackage !in leisurePackages) {
             return ReentryDecision(false, ReentryReason.NOT_LEISURE)
         }
-        if (lastNotificationMillis != null && nowMillis - lastNotificationMillis < FocusMonitorCadence.REENTRY_COOLDOWN_MILLIS) {
+        if (lastNotificationMillis != null && nowMillis - lastNotificationMillis < reentryCooldownMillis) {
             return ReentryDecision(false, ReentryReason.COOLDOWN)
         }
         return ReentryDecision(true, ReentryReason.LEISURE_APP)

@@ -24,10 +24,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.example.attentioncoach.R
+import com.example.attentioncoach.domain.AppSettings
+import com.example.attentioncoach.domain.AppSettingsRules
 import com.example.attentioncoach.domain.ActiveWork
 import com.example.attentioncoach.domain.CalendarRules
 import com.example.attentioncoach.domain.DateIndicatorRules
 import com.example.attentioncoach.domain.DemoTaskRepository
+import com.example.attentioncoach.domain.NeededApp
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.Priority
 import com.example.attentioncoach.domain.TaskStatus
@@ -56,6 +59,7 @@ fun AttentionCoachApp(
     var selectedTaskId by remember { mutableStateOf<Long?>(null) }
     var draftTask by remember { mutableStateOf<PlannedTask?>(null) }
     var activeWork by remember { mutableStateOf<ActiveWork?>(null) }
+    var appSettings by remember { mutableStateOf(AppSettings()) }
     var reentryOpen by remember { mutableStateOf(false) }
     var showAlarmPermissionPrompt by remember { mutableStateOf(false) }
     val selectedTask = selectedTaskId?.let { id -> tasks.firstOrNull { it.id == id } }
@@ -88,7 +92,12 @@ fun AttentionCoachApp(
 
     LaunchedEffect(activeWorkTask?.id, activeWork?.isPaused) {
         if (activeWorkTask != null && activeWork?.isPaused == false) {
-            FocusMonitorService.start(context, activeWorkTask)
+            FocusMonitorService.start(
+                context = context,
+                task = activeWorkTask,
+                neededPackages = appSettings.neededApps.map { it.packageName }.toSet(),
+                reentryCooldownMillis = appSettings.notificationIntervalSeconds * 1000L
+            )
         } else {
             FocusMonitorService.stop(context)
         }
@@ -158,6 +167,7 @@ fun AttentionCoachApp(
                     reentryOpen = false
                     destination = TopLevelDestination.TASKS
                 },
+                neededApps = appSettings.neededApps,
                 onNeededAppSelected = { launchNeededApp(context, it) }
             )
         }
@@ -200,12 +210,11 @@ fun AttentionCoachApp(
                     status = TaskStatus.PLANNED
                 )
             },
-            onSeedDemo = {
-                val seeded = DemoTaskRepository.seed()
-                tasks = seeded
-                nextTaskId = seeded.nextTaskId()
-                selectedTaskId = null
-                draftTask = null
+            settings = appSettings,
+            onAddNeededApp = { appSettings = AppSettingsRules.addNeededApp(appSettings, it) },
+            onRemoveNeededApp = { appSettings = AppSettingsRules.removeNeededApp(appSettings, it) },
+            onNotificationIntervalSelected = {
+                appSettings = AppSettingsRules.withNotificationInterval(appSettings, it)
             }
         )
     }
@@ -326,7 +335,10 @@ private fun TopLevelScreen(
     onTaskSelected: (Long) -> Unit,
     onToggleTaskComplete: (Long) -> Unit,
     onAddTask: () -> Unit,
-    onSeedDemo: () -> Unit
+    settings: AppSettings,
+    onAddNeededApp: (NeededApp) -> Unit,
+    onRemoveNeededApp: (String) -> Unit,
+    onNotificationIntervalSelected: (Int) -> Unit
 ) {
     when (destination) {
         TopLevelDestination.TASKS -> TodayScreen(
@@ -349,7 +361,10 @@ private fun TopLevelScreen(
         )
 
         TopLevelDestination.SETTINGS -> SettingsScreen(
-            onSeedDemo = onSeedDemo,
+            settings = settings,
+            onAddNeededApp = onAddNeededApp,
+            onRemoveNeededApp = onRemoveNeededApp,
+            onNotificationIntervalSelected = onNotificationIntervalSelected,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
