@@ -76,3 +76,29 @@ Not completed in this smoke pass:
 - The second Finish confirmation and final Today-state verification were not completed because the follow-up ADB interaction was not approved in this run.
 - Exit two-step confirmation was covered by unit/domain behavior and prior smoke for the old one-step flow, but the new two-step UI still needs an emulator click-through.
 - Date year/month wheel was covered by unit tests and build verification, but not clicked through on emulator in this pass.
+
+## 2026-05-10 Feature Closeout Smoke Addendum
+
+Build under test: debug APK built after commits through `4a6cc25`.
+
+Fresh verification:
+
+- Ran `.\gradlew.bat testDebugUnitTest assembleDebug`.
+- Gradle reported `BUILD SUCCESSFUL`.
+- Installed `app\build\outputs\apk\debug\app-debug.apk` on `emulator-5554`; install reported `Success`.
+
+Verified on emulator:
+
+- App launched successfully after reinstall.
+- Bottom navigation could switch from Today to Insights.
+- Insights rendered the weekly summary page with:
+  - `This week`
+  - `PLANNED VS ACTUAL`
+  - `Planned vs actual`
+  - `Common reasons`
+- The page showed `0m` planned and `0m` actual for the currently selected empty week, matching the selected date state.
+
+Limits:
+
+- This closeout did not re-click every workflow already covered by the earlier May 10 commits.
+- Scheduled start-time reminder repeat/acknowledgement is still a follow-up; this addendum only covers the latest committed Insights/UI navigation smoke.
