@@ -379,18 +379,33 @@ private fun ScheduleField(startTime: LocalTime?, durationMinutes: Int, onClick: 
         shape = RoundedCornerShape(18.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.Center
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(58.dp)
+                .padding(horizontal = 14.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text(
-                text = startTime?.shortTimeLabel() ?: "No start time",
-                color = UiTokens.LowChipText,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
+            ScheduleSummaryValue(
+                label = "DURATION",
+                value = "$durationMinutes min",
+                modifier = Modifier.weight(1f)
             )
-            Text("$durationMinutes min", color = UiTokens.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            ScheduleSummaryValue(
+                label = "START TIME",
+                value = startTime?.shortTimeLabel() ?: "Not set",
+                modifier = Modifier.weight(1f)
+            )
         }
+    }
+}
+
+@Composable
+private fun ScheduleSummaryValue(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.Center) {
+        Text(label, color = UiTokens.LowChipText, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(value, color = UiTokens.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }
 
