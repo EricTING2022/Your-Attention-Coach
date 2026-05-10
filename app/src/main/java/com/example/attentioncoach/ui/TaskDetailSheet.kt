@@ -28,6 +28,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -267,6 +269,8 @@ private fun PlanPage(
             OutlinedTextField(
                 value = title,
                 onValueChange = onTitleChange,
+                shape = RoundedCornerShape(20.dp),
+                colors = planFieldColors(),
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -282,13 +286,7 @@ private fun PlanPage(
             Column(Modifier.weight(1f)) {
                 FieldLabel("Priority", priority.color())
                 Box {
-                    OutlinedTextField(
-                        value = priority.displayName(),
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = { Text("v") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    PriorityField(priority = priority, onClick = { priorityOpen = true })
                     Box(
                         modifier = Modifier
                             .matchParentSize()
@@ -317,7 +315,14 @@ private fun PlanPage(
             }
         }
         FieldLabel("Targets", UiTokens.GoogleBlue)
-        OutlinedTextField(value = target, onValueChange = { target = it }, minLines = 6, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(
+            value = target,
+            onValueChange = { target = it },
+            minLines = 6,
+            shape = RoundedCornerShape(20.dp),
+            colors = planFieldColors(),
+            modifier = Modifier.fillMaxWidth()
+        )
         Button(
             onClick = {
                 val updated = task.copy(
@@ -336,6 +341,7 @@ private fun PlanPage(
                 }
             },
             colors = ButtonDefaults.buttonColors(containerColor = UiTokens.GoogleBlue),
+            shape = RoundedCornerShape(999.dp),
             modifier = Modifier.fillMaxWidth().height(58.dp)
         ) {
             Text(if (isCreateMode) "Save task" else "Start work block", fontSize = 19.sp, fontWeight = FontWeight.Bold)
@@ -373,7 +379,7 @@ private fun ScheduleField(startTime: LocalTime?, durationMinutes: Int, onClick: 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(58.dp)
+            .height(78.dp)
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color.White),
         shape = RoundedCornerShape(18.dp),
@@ -382,7 +388,7 @@ private fun ScheduleField(startTime: LocalTime?, durationMinutes: Int, onClick: 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(58.dp)
+                .height(78.dp)
                 .padding(horizontal = 14.dp),
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -397,6 +403,40 @@ private fun ScheduleField(startTime: LocalTime?, durationMinutes: Int, onClick: 
                 value = startTime?.shortTimeLabel() ?: "Not set",
                 modifier = Modifier.weight(1f)
             )
+        }
+    }
+}
+
+@Composable
+private fun PriorityField(priority: Priority, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(78.dp)
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(18.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(78.dp)
+                .padding(horizontal = 14.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = priority.displayName(),
+                color = priority.color(),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(priority.chipBg())
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            )
+            Text("v", color = UiTokens.InkSoft, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -479,3 +519,21 @@ private fun Priority.color(): androidx.compose.ui.graphics.Color {
         Priority.NOT_URGENT -> UiTokens.LowChipText
     }
 }
+
+private fun Priority.chipBg(): androidx.compose.ui.graphics.Color {
+    return when (this) {
+        Priority.URGENT_IMPORTANT -> UiTokens.RedChipBg
+        Priority.URGENT -> UiTokens.UrgentChipBg
+        Priority.IMPORTANT -> UiTokens.ImportantChipBg
+        Priority.NOT_URGENT -> UiTokens.LowChipBg
+    }
+}
+
+@Composable
+private fun planFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = UiTokens.GoogleBlue,
+    unfocusedBorderColor = UiTokens.Outline,
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = Color.White,
+    cursorColor = UiTokens.GoogleBlue
+)
