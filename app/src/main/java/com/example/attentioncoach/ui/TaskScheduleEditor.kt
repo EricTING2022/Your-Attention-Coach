@@ -11,16 +11,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,7 +29,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -43,8 +45,12 @@ fun TaskScheduleEditor(
     onDismiss: () -> Unit,
     onSave: (LocalTime?, Int) -> Unit
 ) {
-    var selectedStartTime by remember(initialStartTime) { mutableStateOf(initialStartTime) }
+    val initialWheelTime = remember(initialStartTime) { initialStartTime ?: defaultStartTime() }
+    var selectedHour by remember(initialStartTime) { mutableStateOf(initialWheelTime.hour) }
+    var selectedMinute by remember(initialStartTime) { mutableStateOf((initialWheelTime.minute / 5) * 5) }
     var selectedDuration by remember(initialDurationMinutes) { mutableStateOf(initialDurationMinutes) }
+    val hourListState = rememberLazyListState(initialFirstVisibleItemIndex = (selectedHour - 2).coerceAtLeast(0))
+    val minuteListState = rememberLazyListState(initialFirstVisibleItemIndex = ((selectedMinute / 5) - 2).coerceAtLeast(0))
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -59,33 +65,59 @@ fun TaskScheduleEditor(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "<",
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable(onClick = onDismiss)
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
                     Column(Modifier.weight(1f)) {
-                        Text("Schedule", color = UiTokens.InkSoft, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text("Start time", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                        Text("SCHEDULE", color = UiTokens.InkSoft, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("Set time", fontSize = 30.sp, fontWeight = FontWeight.Bold)
                     }
-                    TextButton(onClick = onDismiss) {
-                        Text("Close", color = UiTokens.InkSoft, fontWeight = FontWeight.Bold)
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(CircleShape)
+                            .background(UiTokens.GoogleGreen)
+                            .clickable { onSave(LocalTime.of(selectedHour, selectedMinute), selectedDuration) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("✓", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
-                LazyColumn(
+                Text("START TIME", color = UiTokens.LowChipText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(300.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        .height(238.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(24.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
-                    item {
-                        TimeOption(
-                            text = "No start time",
-                            selected = selectedStartTime == null,
-                            onClick = { selectedStartTime = null }
+                    Row(
+                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        WheelColumn(
+                            values = ScheduleOptions.hours,
+                            selectedValue = selectedHour,
+                            label = { it.toString() },
+                            state = hourListState,
+                            onSelected = { selectedHour = it },
+                            modifier = Modifier.weight(1f)
                         )
-                    }
-                    items(ScheduleOptions.startTimes()) { time ->
-                        TimeOption(
-                            text = time.shortTimeLabel(),
-                            selected = selectedStartTime == time,
-                            onClick = { selectedStartTime = time }
+                        WheelColumn(
+                            values = ScheduleOptions.minutes,
+                            selectedValue = selectedMinute,
+                            label = { it.toString().padStart(2, '0') },
+                            state = minuteListState,
+                            onSelected = { selectedMinute = it },
+                            modifier = Modifier.weight(1f)
                         )
                     }
                 }
@@ -100,19 +132,48 @@ fun TaskScheduleEditor(
                         )
                     }
                 }
-
-                Button(
-                    onClick = { onSave(selectedStartTime, selectedDuration) },
-                    colors = ButtonDefaults.buttonColors(containerColor = UiTokens.GoogleBlue),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                ) {
-                    Text("Save schedule", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                }
             }
         }
     }
+}
+
+@Composable
+private fun WheelColumn(
+    values: List<Int>,
+    selectedValue: Int,
+    label: (Int) -> String,
+    state: LazyListState,
+    onSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyColumn(
+        state = state,
+        modifier = modifier.height(218.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        items(values) { value ->
+            val selected = value == selectedValue
+            Text(
+                text = label(value),
+                color = if (selected) UiTokens.LowChipText else UiTokens.InkSoft.copy(alpha = 0.55f),
+                fontSize = if (selected) 24.sp else 21.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(if (selected) UiTokens.LowChipBg else Color.Transparent)
+                    .clickable { onSelected(value) }
+                    .padding(vertical = 11.dp)
+            )
+        }
+    }
+}
+
+private fun defaultStartTime(): LocalTime {
+    val now = LocalTime.now()
+    return now.withMinute((now.minute / 5) * 5).withSecond(0).withNano(0)
 }
 
 @Composable
