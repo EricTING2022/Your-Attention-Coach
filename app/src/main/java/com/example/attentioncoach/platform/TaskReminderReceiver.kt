@@ -63,9 +63,6 @@ class TaskReminderReceiver : BroadcastReceiver() {
             .setPriority(Notification.PRIORITY_MAX)
             .setCategory(Notification.CATEGORY_ALARM)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            builder.setTimeoutAfter(BANNER_TIMEOUT_MILLIS)
-        }
         return builder.build()
     }
 
@@ -105,10 +102,7 @@ class TaskReminderReceiver : BroadcastReceiver() {
     private fun openTaskFromReminder(context: Context, intent: Intent) {
         val taskId = intent.getLongExtra(EXTRA_TASK_ID, -1L)
         if (taskId <= 0L) return
-        acknowledge(context, taskId)
-        cancelReminder(context, taskId)
-        context.getSystemService(NotificationManager::class.java)
-            .cancel(REMINDER_NOTIFICATION_ID_BASE + taskId.toInt().coerceAtLeast(0))
+        acknowledgeReminder(context, taskId)
         val activityIntent = Intent(context, MainActivity::class.java).apply {
             action = ACTION_SCHEDULED_REMINDER
             putExtra(EXTRA_TASK_ID, taskId)
@@ -128,7 +122,6 @@ class TaskReminderReceiver : BroadcastReceiver() {
         private const val REMINDER_NOTIFICATION_ID_BASE = 5_000
         private const val OPEN_REQUEST_CODE_BASE = 75_000
         private const val DEFAULT_REPEAT_INTERVAL_SECONDS = 30
-        private const val BANNER_TIMEOUT_MILLIS = 15_000L
         private const val PREFS_NAME = "task_reminders"
 
         fun reminderPendingIntent(
@@ -156,6 +149,17 @@ class TaskReminderReceiver : BroadcastReceiver() {
                 .edit()
                 .remove(ackKey(taskId))
                 .apply()
+        }
+
+        fun acknowledgeReminder(context: Context, taskId: Long) {
+            acknowledge(context, taskId)
+            cancelReminder(context, taskId)
+            context.getSystemService(NotificationManager::class.java)
+                .cancel(REMINDER_NOTIFICATION_ID_BASE + taskId.toInt().coerceAtLeast(0))
+        }
+
+        fun acknowledgeReminders(context: Context, taskIds: Iterable<Long>) {
+            taskIds.forEach { acknowledgeReminder(context, it) }
         }
 
         private fun acknowledge(context: Context, taskId: Long) {
