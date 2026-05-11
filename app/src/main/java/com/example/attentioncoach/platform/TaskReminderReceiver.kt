@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import com.example.attentioncoach.MainActivity
+import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.ReminderRules
 import com.example.attentioncoach.domain.StartReminderAction
 
@@ -35,8 +36,10 @@ class TaskReminderReceiver : BroadcastReceiver() {
         val repeatIntervalSeconds = intent.getIntExtra(EXTRA_REPEAT_INTERVAL_SECONDS, DEFAULT_REPEAT_INTERVAL_SECONDS)
         val notificationManager = context.getSystemService(NotificationManager::class.java)
         ensureChannel(notificationManager)
+        val notificationId = notificationId(taskId)
+        notificationManager.cancel(notificationId)
         notificationManager.notify(
-            REMINDER_NOTIFICATION_ID_BASE + taskId.toInt().coerceAtLeast(0),
+            notificationId,
             buildNotification(context, taskId, taskTitle)
         )
         scheduleRepeat(context, taskId, taskTitle, repeatIntervalSeconds)
@@ -111,6 +114,31 @@ class TaskReminderReceiver : BroadcastReceiver() {
         private const val DEFAULT_REPEAT_INTERVAL_SECONDS = 30
         private const val PREFS_NAME = "task_reminders"
 
+        fun showReminderNow(
+            context: Context,
+            task: PlannedTask,
+            repeatIntervalSeconds: Int
+        ) {
+            val store = StartReminderStore(context)
+            if (isAcknowledged(context, task.id) || store.isAcknowledged(task.id)) return
+            store.markActiveDue(task.id)
+            val receiver = TaskReminderReceiver()
+            val notificationManager = context.getSystemService(NotificationManager::class.java)
+            receiver.ensureChannel(notificationManager)
+            val notificationId = notificationId(task.id)
+            notificationManager.cancel(notificationId)
+            notificationManager.notify(
+                notificationId,
+                receiver.buildNotification(context, task.id, task.title.ifBlank { "your task" })
+            )
+            receiver.scheduleRepeat(context, task.id, task.title, repeatIntervalSeconds)
+        }
+
+        fun cancelVisibleNotification(context: Context, taskId: Long) {
+            context.getSystemService(NotificationManager::class.java)
+                .cancel(notificationId(taskId))
+        }
+
         fun reminderPendingIntent(
             context: Context,
             taskId: Long,
@@ -172,7 +200,7 @@ class TaskReminderReceiver : BroadcastReceiver() {
             acknowledge(context, taskId)
             cancelReminder(context, taskId)
             context.getSystemService(NotificationManager::class.java)
-                .cancel(REMINDER_NOTIFICATION_ID_BASE + taskId.toInt().coerceAtLeast(0))
+                .cancel(notificationId(taskId))
         }
 
         fun acknowledgeReminders(context: Context, taskIds: Iterable<Long>) {
@@ -200,6 +228,10 @@ class TaskReminderReceiver : BroadcastReceiver() {
             )
             context.getSystemService(AlarmManager::class.java).cancel(pendingIntent)
             pendingIntent.cancel()
+        }
+
+        private fun notificationId(taskId: Long): Int {
+            return REMINDER_NOTIFICATION_ID_BASE + taskId.toInt().coerceAtLeast(0)
         }
 
         private fun ackKey(taskId: Long): String {

@@ -38,9 +38,11 @@ import com.example.attentioncoach.domain.TaskStatus
 import com.example.attentioncoach.domain.TopLevelDestination
 import com.example.attentioncoach.domain.WorkSessionClock
 import com.example.attentioncoach.platform.AlarmPermissionHelper
+import com.example.attentioncoach.platform.FocusSessionStore
 import com.example.attentioncoach.platform.FocusMonitorService
 import com.example.attentioncoach.platform.InstalledAppsProvider
 import com.example.attentioncoach.platform.ReminderScheduleResult
+import com.example.attentioncoach.platform.StartReminderStore
 import com.example.attentioncoach.platform.TaskReminderReceiver
 import com.example.attentioncoach.platform.TaskReminderScheduler
 import com.example.attentioncoach.platform.launchNeededApp
@@ -59,6 +61,8 @@ fun AttentionCoachApp(
     val initialTasks = remember { DemoTaskRepository.seed() }
     val alarmPermissionHelper = remember(context) { AlarmPermissionHelper(context) }
     val reminderScheduler = remember(context) { TaskReminderScheduler(context, alarmPermissionHelper) }
+    val focusSessionStore = remember(context) { FocusSessionStore(context) }
+    val startReminderStore = remember(context) { StartReminderStore(context) }
     val installedAppsProvider = remember(context) { InstalledAppsProvider(context) }
     val installedApps = remember(installedAppsProvider) { installedAppsProvider.launchableApps() }
     var destination by remember { mutableStateOf(TopLevelDestination.TASKS) }
@@ -92,6 +96,22 @@ fun AttentionCoachApp(
         }
     }
 
+    fun releaseDeferredStartReminders(sourceTasks: List<PlannedTask>) {
+        val releasedTaskIds = startReminderStore.releaseDeferred()
+        if (releasedTaskIds.isEmpty()) return
+        val selectedReminderTask = ReminderRules.highestPriorityDueTask(
+            tasks = sourceTasks,
+            activeDueIds = startReminderStore.activeDueIds()
+        )
+        if (selectedReminderTask != null) {
+            TaskReminderReceiver.showReminderNow(
+                context = context,
+                task = selectedReminderTask,
+                repeatIntervalSeconds = appSettings.notificationIntervalSeconds
+            )
+        }
+    }
+
     LaunchedEffect(reentryTaskId) {
         val taskId = reentryTaskId ?: return@LaunchedEffect
         val task = tasks.firstOrNull { it.id == taskId }
@@ -117,12 +137,17 @@ fun AttentionCoachApp(
 
     LaunchedEffect(appEnteredAtMillis, tasks) {
         if (appEnteredAtMillis <= 0L) return@LaunchedEffect
-        val dueTaskIds = ReminderRules.dueStartReminderTaskIds(
-            tasks = tasks,
-            nowMillis = appEnteredAtMillis,
-            zoneId = ZoneId.systemDefault()
-        )
-        TaskReminderReceiver.acknowledgeReminders(context, dueTaskIds)
+        startReminderStore.activeDueIds().forEach { taskId ->
+            TaskReminderReceiver.cancelVisibleNotification(context, taskId)
+        }
+    }
+
+    LaunchedEffect(activeWorkTask?.id) {
+        if (activeWorkTask != null) {
+            focusSessionStore.setActive(activeWorkTask.id)
+        } else {
+            focusSessionStore.clearActive()
+        }
     }
 
     LaunchedEffect(activeWorkTask?.id, activeWork?.isPaused) {
@@ -182,7 +207,7 @@ fun AttentionCoachApp(
                     val work = activeWork
                     if (work != null) {
                         val activeMillis = WorkSessionClock.activeMillisAt(work, System.currentTimeMillis())
-                        tasks = tasks.map {
+                        val updatedTasks = tasks.map {
                             if (it.id == work.taskId) {
                                 it.copy(
                                     status = TaskStatus.FINISHED,
@@ -192,12 +217,17 @@ fun AttentionCoachApp(
                                 it
                             }
                         }
+                        tasks = updatedTasks
+                        focusSessionStore.clearActive()
+                        releaseDeferredStartReminders(updatedTasks)
                     }
                     activeWork = null
                     reentryOpen = false
                     destination = TopLevelDestination.TASKS
                 },
                 onExit = {
+                    focusSessionStore.clearActive()
+                    releaseDeferredStartReminders(tasks)
                     activeWork = null
                     reentryOpen = false
                     destination = TopLevelDestination.TASKS
