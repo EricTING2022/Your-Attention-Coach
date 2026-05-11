@@ -75,6 +75,7 @@ fun AttentionCoachApp(
     var appSettings by remember { mutableStateOf(AppSettings()) }
     var reentryOpen by remember { mutableStateOf(false) }
     var showAlarmPermissionPrompt by remember { mutableStateOf(false) }
+    var activeDueReminderIds by remember { mutableStateOf(startReminderStore.activeDueIds()) }
     val selectedTask = selectedTaskId?.let { id -> tasks.firstOrNull { it.id == id } }
     val detailTask = selectedTask ?: draftTask
     val isCreateMode = selectedTask == null && draftTask != null
@@ -99,9 +100,10 @@ fun AttentionCoachApp(
     fun releaseDeferredStartReminders(sourceTasks: List<PlannedTask>) {
         val releasedTaskIds = startReminderStore.releaseDeferred()
         if (releasedTaskIds.isEmpty()) return
+        activeDueReminderIds = startReminderStore.activeDueIds()
         val selectedReminderTask = ReminderRules.highestPriorityDueTask(
             tasks = sourceTasks,
-            activeDueIds = startReminderStore.activeDueIds()
+            activeDueIds = activeDueReminderIds
         )
         if (selectedReminderTask != null) {
             TaskReminderReceiver.showReminderNow(
@@ -128,6 +130,7 @@ fun AttentionCoachApp(
         val taskId = scheduledReminderTaskId ?: return@LaunchedEffect
         if (tasks.any { it.id == taskId }) {
             TaskReminderReceiver.acknowledgeReminder(context, taskId)
+            activeDueReminderIds = startReminderStore.activeDueIds()
             destination = TopLevelDestination.TASKS
             selectedTaskId = taskId
             draftTask = null
@@ -137,7 +140,8 @@ fun AttentionCoachApp(
 
     LaunchedEffect(appEnteredAtMillis, tasks) {
         if (appEnteredAtMillis <= 0L) return@LaunchedEffect
-        startReminderStore.activeDueIds().forEach { taskId ->
+        activeDueReminderIds = startReminderStore.activeDueIds()
+        activeDueReminderIds.forEach { taskId ->
             TaskReminderReceiver.cancelVisibleNotification(context, taskId)
         }
     }
@@ -253,8 +257,11 @@ fun AttentionCoachApp(
             selectedDate = selectedDate,
             tasks = tasks,
             unfinishedTaskDates = unfinishedTaskDates,
+            activeDueReminderIds = activeDueReminderIds,
             onDateSelected = { selectedDate = it },
             onTaskSelected = {
+                TaskReminderReceiver.acknowledgeReminder(context, it)
+                activeDueReminderIds = startReminderStore.activeDueIds()
                 draftTask = null
                 selectedTaskId = it
             },
@@ -306,6 +313,8 @@ fun AttentionCoachApp(
                 destination = TopLevelDestination.TASKS
             },
             onDeleteTask = { taskId ->
+                TaskReminderReceiver.acknowledgeReminder(context, taskId)
+                activeDueReminderIds = startReminderStore.activeDueIds()
                 tasks = tasks.filterNot { it.id == taskId }
                 if (activeWork?.taskId == taskId) {
                     activeWork = null
@@ -332,6 +341,8 @@ fun AttentionCoachApp(
             },
             onStartWork = {
                 val task = tasks.firstOrNull { task -> task.id == it }
+                TaskReminderReceiver.acknowledgeReminder(context, it)
+                activeDueReminderIds = startReminderStore.activeDueIds()
                 activeWork = task?.toActiveWork()
                 selectedTaskId = null
             }
@@ -397,6 +408,7 @@ private fun TopLevelScreen(
     selectedDate: LocalDate,
     tasks: List<PlannedTask>,
     unfinishedTaskDates: Set<LocalDate>,
+    activeDueReminderIds: Set<Long>,
     onDateSelected: (LocalDate) -> Unit,
     onTaskSelected: (Long) -> Unit,
     onToggleTaskComplete: (Long) -> Unit,
@@ -412,6 +424,7 @@ private fun TopLevelScreen(
             selectedDate = selectedDate,
             tasks = tasks.filter { it.date == selectedDate },
             unfinishedTaskDates = unfinishedTaskDates,
+            activeDueReminderIds = activeDueReminderIds,
             onDateSelected = onDateSelected,
             onTaskSelected = onTaskSelected,
             onToggleTaskComplete = onToggleTaskComplete,

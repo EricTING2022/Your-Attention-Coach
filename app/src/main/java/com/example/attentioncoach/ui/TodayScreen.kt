@@ -64,6 +64,7 @@ fun TodayScreen(
     selectedDate: LocalDate,
     tasks: List<PlannedTask>,
     unfinishedTaskDates: Set<LocalDate>,
+    activeDueReminderIds: Set<Long>,
     onDateSelected: (LocalDate) -> Unit,
     onTaskSelected: (Long) -> Unit,
     onToggleTaskComplete: (Long) -> Unit,
@@ -113,6 +114,7 @@ fun TodayScreen(
             items(visibleTasks, key = { it.id }) { task ->
                 TaskCard(
                     task = task,
+                    hasStartReminderDue = task.id in activeDueReminderIds,
                     onClick = { onTaskSelected(task.id) },
                     onToggleComplete = { onToggleTaskComplete(task.id) }
                 )
@@ -308,7 +310,12 @@ private fun SummaryCard(label: String, value: String, modifier: Modifier = Modif
 }
 
 @Composable
-private fun TaskCard(task: PlannedTask, onClick: () -> Unit, onToggleComplete: () -> Unit) {
+private fun TaskCard(
+    task: PlannedTask,
+    hasStartReminderDue: Boolean,
+    onClick: () -> Unit,
+    onToggleComplete: () -> Unit
+) {
     Card(
         modifier = Modifier
             .padding(horizontal = 18.dp)
@@ -334,6 +341,24 @@ private fun TaskCard(task: PlannedTask, onClick: () -> Unit, onToggleComplete: (
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (hasStartReminderDue) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_start_due_alarm_24),
+                            contentDescription = "Start time due",
+                            tint = UiTokens.InkSoft,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            "Start time passed",
+                            color = UiTokens.InkSoft,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                     Chip(text = "${task.durationMinutes} min", type = ChipType.Neutral)
