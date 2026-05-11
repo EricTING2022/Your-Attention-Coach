@@ -33,6 +33,7 @@ import com.example.attentioncoach.domain.DemoTaskRepository
 import com.example.attentioncoach.domain.NeededApp
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.Priority
+import com.example.attentioncoach.domain.ReminderRules
 import com.example.attentioncoach.domain.TaskStatus
 import com.example.attentioncoach.domain.TopLevelDestination
 import com.example.attentioncoach.domain.WorkSessionClock
@@ -40,16 +41,19 @@ import com.example.attentioncoach.platform.AlarmPermissionHelper
 import com.example.attentioncoach.platform.FocusMonitorService
 import com.example.attentioncoach.platform.InstalledAppsProvider
 import com.example.attentioncoach.platform.ReminderScheduleResult
+import com.example.attentioncoach.platform.TaskReminderReceiver
 import com.example.attentioncoach.platform.TaskReminderScheduler
 import com.example.attentioncoach.platform.launchNeededApp
 import java.time.LocalDate
+import java.time.ZoneId
 
 @Composable
 fun AttentionCoachApp(
     reentryTaskId: Long? = null,
     onReentryConsumed: () -> Unit = {},
     scheduledReminderTaskId: Long? = null,
-    onScheduledReminderConsumed: () -> Unit = {}
+    onScheduledReminderConsumed: () -> Unit = {},
+    appEnteredAtMillis: Long = 0L
 ) {
     val context = LocalContext.current
     val initialTasks = remember { DemoTaskRepository.seed() }
@@ -103,11 +107,22 @@ fun AttentionCoachApp(
     LaunchedEffect(scheduledReminderTaskId) {
         val taskId = scheduledReminderTaskId ?: return@LaunchedEffect
         if (tasks.any { it.id == taskId }) {
+            TaskReminderReceiver.acknowledgeReminder(context, taskId)
             destination = TopLevelDestination.TASKS
             selectedTaskId = taskId
             draftTask = null
         }
         onScheduledReminderConsumed()
+    }
+
+    LaunchedEffect(appEnteredAtMillis, tasks) {
+        if (appEnteredAtMillis <= 0L) return@LaunchedEffect
+        val dueTaskIds = ReminderRules.dueStartReminderTaskIds(
+            tasks = tasks,
+            nowMillis = appEnteredAtMillis,
+            zoneId = ZoneId.systemDefault()
+        )
+        TaskReminderReceiver.acknowledgeReminders(context, dueTaskIds)
     }
 
     LaunchedEffect(activeWorkTask?.id, activeWork?.isPaused) {

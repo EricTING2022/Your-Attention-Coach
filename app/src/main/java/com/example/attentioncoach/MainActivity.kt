@@ -16,6 +16,7 @@ import com.example.attentioncoach.ui.theme.AttentionCoachTheme
 class MainActivity : ComponentActivity() {
     private val reentryTaskId = mutableStateOf<Long?>(null)
     private val scheduledReminderTaskId = mutableStateOf<Long?>(null)
+    private val appEnteredAtMillis = mutableStateOf(0L)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,10 +29,16 @@ class MainActivity : ComponentActivity() {
                     reentryTaskId = reentryTaskId.value,
                     onReentryConsumed = { reentryTaskId.value = null },
                     scheduledReminderTaskId = scheduledReminderTaskId.value,
-                    onScheduledReminderConsumed = { scheduledReminderTaskId.value = null }
+                    onScheduledReminderConsumed = { scheduledReminderTaskId.value = null },
+                    appEnteredAtMillis = appEnteredAtMillis.value
                 )
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        appEnteredAtMillis.value = System.currentTimeMillis()
     }
 
     override fun onNewIntent(intent: Intent) {
