@@ -23,7 +23,9 @@ class ReentryNotifier(private val context: Context) {
             REENTRY_CHANNEL,
             "Re-entry Reminder",
             NotificationManager.IMPORTANCE_HIGH
-        )
+        ).apply {
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+        }
         notificationManager.createNotificationChannel(activeChannel)
         notificationManager.createNotificationChannel(reentryChannel)
     }
@@ -43,6 +45,7 @@ class ReentryNotifier(private val context: Context) {
 
     fun showReentryBanner(taskId: Long, taskTitle: String) {
         ensureChannels()
+        notificationManager.cancel(REENTRY_NOTIFICATION_ID)
         notificationManager.notify(REENTRY_NOTIFICATION_ID, buildReentryNotification(taskId, taskTitle))
     }
 
@@ -55,8 +58,13 @@ class ReentryNotifier(private val context: Context) {
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("Still your focus block?")
             .setContentText("You planned to work on $taskTitle. Tap to return.")
+            .setStyle(Notification.BigTextStyle().bigText("You planned to work on $taskTitle. Tap to return."))
             .setContentIntent(reentryPendingIntent(taskId))
             .setAutoCancel(true)
+            .setTimeoutAfter(REENTRY_TIMEOUT_MILLIS)
+            .setPriority(Notification.PRIORITY_MAX)
+            .setCategory(Notification.CATEGORY_REMINDER)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
             .build()
     }
 
@@ -80,5 +88,6 @@ class ReentryNotifier(private val context: Context) {
         const val ACTION_REENTRY = "com.example.attentioncoach.REENTRY"
         const val EXTRA_TASK_ID = "task_id"
         private const val REENTRY_NOTIFICATION_ID = 4521
+        private const val REENTRY_TIMEOUT_MILLIS = 15_000L
     }
 }

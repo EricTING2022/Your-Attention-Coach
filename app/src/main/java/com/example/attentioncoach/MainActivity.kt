@@ -8,6 +8,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.mutableStateOf
+import com.example.attentioncoach.platform.FocusMonitorService
 import com.example.attentioncoach.platform.ReentryNotifier
 import com.example.attentioncoach.platform.TaskReminderReceiver
 import com.example.attentioncoach.ui.AttentionCoachApp
@@ -52,6 +53,9 @@ class MainActivity : ComponentActivity() {
         if (intent?.action != ReentryNotifier.ACTION_REENTRY) return
         val taskId = intent.getLongExtra(ReentryNotifier.EXTRA_TASK_ID, -1L)
         reentryTaskId.value = taskId.takeIf { it > 0L }
+        if (taskId > 0L) {
+            FocusMonitorService.resetReentryCooldown(this, taskId)
+        }
     }
 
     private fun captureScheduledReminderIntent(intent: Intent?) {

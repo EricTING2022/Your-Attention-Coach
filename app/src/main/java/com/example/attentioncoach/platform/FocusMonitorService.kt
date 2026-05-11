@@ -36,6 +36,7 @@ class FocusMonitorService : Service() {
         when (intent?.action) {
             ACTION_START -> startMonitoring(intent)
             ACTION_STOP -> stopMonitoring()
+            ACTION_RESET_REENTRY_COOLDOWN -> resetReentryCooldown(intent)
         }
         return START_STICKY
     }
@@ -86,6 +87,16 @@ class FocusMonitorService : Service() {
         stopSelf()
     }
 
+    private fun resetReentryCooldown(intent: Intent) {
+        val taskId = intent.getLongExtra(EXTRA_TASK_ID, INVALID_TASK_ID)
+        if (session?.taskId == taskId) {
+            lastNotificationMillis = null
+        }
+        if (session == null) {
+            stopSelf()
+        }
+    }
+
     private fun scanForegroundApp() {
         val activeSession = session ?: return
         val nowMillis = System.currentTimeMillis()
@@ -111,6 +122,7 @@ class FocusMonitorService : Service() {
     companion object {
         private const val ACTION_START = "com.example.attentioncoach.monitor.START"
         private const val ACTION_STOP = "com.example.attentioncoach.monitor.STOP"
+        private const val ACTION_RESET_REENTRY_COOLDOWN = "com.example.attentioncoach.monitor.RESET_REENTRY_COOLDOWN"
         private const val EXTRA_TASK_ID = "task_id"
         private const val EXTRA_TASK_TITLE = "task_title"
         private const val EXTRA_NEEDED_PACKAGES = "needed_packages"
@@ -150,6 +162,14 @@ class FocusMonitorService : Service() {
         fun stop(context: Context) {
             val intent = Intent(context, FocusMonitorService::class.java).apply {
                 action = ACTION_STOP
+            }
+            context.startService(intent)
+        }
+
+        fun resetReentryCooldown(context: Context, taskId: Long) {
+            val intent = Intent(context, FocusMonitorService::class.java).apply {
+                action = ACTION_RESET_REENTRY_COOLDOWN
+                putExtra(EXTRA_TASK_ID, taskId)
             }
             context.startService(intent)
         }

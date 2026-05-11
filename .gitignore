@@ -1,7 +1,22 @@
+# Android / Gradle
 .gradle/
-.idea/
+**/build/
+
+# Local machine config
 local.properties
-build/
-app/build/
+
+# Android Studio / IntelliJ
+.idea/
 *.iml
+
+# Native build
+.externalNativeBuild/
+.cxx/
+
+# Screenshots / captures
+captures/
+
+# OS
+.DS_Store
+Thumbs.db
 

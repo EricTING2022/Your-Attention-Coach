@@ -152,6 +152,22 @@ class PlanningRulesTest {
         assertEquals(ReentryReason.COOLDOWN, decision.reason)
     }
 
+    @Test
+    fun softLockUsesConfiguredReentryCooldown() {
+        val decision = SoftLockPolicy.reentryDecision(
+            activeWorkBlock = true,
+            foregroundPackage = "com.shortvideo.app",
+            neededPackages = emptySet(),
+            leisurePackages = setOf("com.shortvideo.app"),
+            nowMillis = 60_000,
+            lastNotificationMillis = 20_000,
+            reentryCooldownMillis = 30_000
+        )
+
+        assertTrue(decision.shouldNotify)
+        assertEquals(ReentryReason.LEISURE_APP, decision.reason)
+    }
+
     private fun task(
         id: Long = 1,
         title: String = "Task",
