@@ -29,6 +29,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".platform.ReminderActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:theme="@style/Theme.AttentionCoach"
+            android:turnScreenOn="true" />
         <service
             android:name=".platform.FocusMonitorService"
             android:exported="false"
