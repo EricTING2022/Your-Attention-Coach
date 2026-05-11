@@ -46,4 +46,53 @@ class ReminderRulesTest {
 
         assertEquals(null, triggerMillis)
     }
+
+    @Test
+    fun dueStartReminderIdsUseTaskDateAndStartTime() {
+        val zone = ZoneId.of("America/Los_Angeles")
+        val nowMillis = ZonedDateTime.of(2026, 5, 11, 2, 30, 0, 0, zone).toInstant().toEpochMilli()
+        val tasks = listOf(
+            task(id = 1, date = LocalDate.of(2026, 5, 11), startTime = LocalTime.of(2, 30)),
+            task(id = 2, date = LocalDate.of(2026, 5, 11), startTime = LocalTime.of(2, 31)),
+            task(id = 3, date = LocalDate.of(2026, 5, 10), startTime = LocalTime.of(23, 59)),
+            task(id = 4, date = LocalDate.of(2026, 5, 11), startTime = null)
+        )
+
+        val dueIds = ReminderRules.dueStartReminderTaskIds(tasks, nowMillis, zone)
+
+        assertEquals(listOf(1L, 3L), dueIds)
+    }
+
+    @Test
+    fun dueStartReminderIdsIgnoreCompletedTasks() {
+        val zone = ZoneId.of("America/Los_Angeles")
+        val nowMillis = ZonedDateTime.of(2026, 5, 11, 2, 30, 0, 0, zone).toInstant().toEpochMilli()
+        val tasks = listOf(
+            task(id = 1, status = TaskStatus.PLANNED),
+            task(id = 2, status = TaskStatus.FINISHED),
+            task(id = 3, status = TaskStatus.REVIEWED)
+        )
+
+        val dueIds = ReminderRules.dueStartReminderTaskIds(tasks, nowMillis, zone)
+
+        assertEquals(listOf(1L), dueIds)
+    }
+
+    private fun task(
+        id: Long,
+        date: LocalDate = LocalDate.of(2026, 5, 11),
+        startTime: LocalTime? = LocalTime.of(2, 0),
+        status: TaskStatus = TaskStatus.PLANNED
+    ): PlannedTask {
+        return PlannedTask(
+            id = id,
+            date = date,
+            title = "Task $id",
+            target = "Target",
+            startTime = startTime,
+            durationMinutes = 30,
+            priority = Priority.IMPORTANT,
+            status = status
+        )
+    }
 }

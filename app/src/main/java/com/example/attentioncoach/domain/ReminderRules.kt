@@ -23,4 +23,17 @@ object ReminderRules {
         val triggerAtMillis = triggerAtMillis(date, startTime, zoneId)
         return triggerAtMillis.takeIf { it > nowMillis }
     }
+
+    fun dueStartReminderTaskIds(
+        tasks: List<PlannedTask>,
+        nowMillis: Long,
+        zoneId: ZoneId
+    ): List<Long> {
+        return tasks.filter { task ->
+            task.startTime != null &&
+                task.status != TaskStatus.FINISHED &&
+                task.status != TaskStatus.REVIEWED &&
+                triggerAtMillis(task.date, task.startTime, zoneId) <= nowMillis
+        }.map { it.id }
+    }
 }
