@@ -10,11 +10,27 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import com.example.attentioncoach.MainActivity
+import com.example.attentioncoach.domain.ReminderRules
+import com.example.attentioncoach.domain.StartReminderAction
 
 class TaskReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val taskId = intent.getLongExtra(EXTRA_TASK_ID, -1L)
-        if (taskId <= 0L || isAcknowledged(context, taskId)) return
+        if (taskId <= 0L) return
+        val startReminderStore = StartReminderStore(context)
+        when (
+            ReminderRules.startReminderAction(
+                isAcknowledged = isAcknowledged(context, taskId) || startReminderStore.isAcknowledged(taskId),
+                focusActive = FocusSessionStore(context).isActive()
+            )
+        ) {
+            StartReminderAction.IGNORE -> return
+            StartReminderAction.DEFER -> {
+                startReminderStore.defer(taskId)
+                return
+            }
+            StartReminderAction.NOTIFY -> startReminderStore.markActiveDue(taskId)
+        }
         val taskTitle = intent.getStringExtra(EXTRA_TASK_TITLE).orEmpty().ifBlank { "your task" }
         val repeatIntervalSeconds = intent.getIntExtra(EXTRA_REPEAT_INTERVAL_SECONDS, DEFAULT_REPEAT_INTERVAL_SECONDS)
         val notificationManager = context.getSystemService(NotificationManager::class.java)
@@ -144,6 +160,7 @@ class TaskReminderReceiver : BroadcastReceiver() {
         }
 
         fun clearAcknowledged(context: Context, taskId: Long) {
+            StartReminderStore(context).clearAcknowledged(taskId)
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit()
                 .remove(ackKey(taskId))
@@ -151,6 +168,7 @@ class TaskReminderReceiver : BroadcastReceiver() {
         }
 
         fun acknowledgeReminder(context: Context, taskId: Long) {
+            StartReminderStore(context).acknowledge(taskId)
             acknowledge(context, taskId)
             cancelReminder(context, taskId)
             context.getSystemService(NotificationManager::class.java)

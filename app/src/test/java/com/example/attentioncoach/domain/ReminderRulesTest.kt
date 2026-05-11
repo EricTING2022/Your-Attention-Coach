@@ -129,6 +129,30 @@ class ReminderRulesTest {
         assertEquals(null, selected)
     }
 
+    @Test
+    fun startReminderActionIgnoresAcknowledgedTask() {
+        assertEquals(
+            StartReminderAction.IGNORE,
+            ReminderRules.startReminderAction(isAcknowledged = true, focusActive = true)
+        )
+    }
+
+    @Test
+    fun startReminderActionDefersDuringActiveFocus() {
+        assertEquals(
+            StartReminderAction.DEFER,
+            ReminderRules.startReminderAction(isAcknowledged = false, focusActive = true)
+        )
+    }
+
+    @Test
+    fun startReminderActionNotifiesWhenFocusIsInactive() {
+        assertEquals(
+            StartReminderAction.NOTIFY,
+            ReminderRules.startReminderAction(isAcknowledged = false, focusActive = false)
+        )
+    }
+
     private fun task(
         id: Long,
         date: LocalDate = LocalDate.of(2026, 5, 11),

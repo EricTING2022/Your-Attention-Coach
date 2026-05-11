@@ -51,6 +51,17 @@ object ReminderRules {
         )
     }
 
+    fun startReminderAction(
+        isAcknowledged: Boolean,
+        focusActive: Boolean
+    ): StartReminderAction {
+        return when {
+            isAcknowledged -> StartReminderAction.IGNORE
+            focusActive -> StartReminderAction.DEFER
+            else -> StartReminderAction.NOTIFY
+        }
+    }
+
     private fun Priority.reminderRank(): Int {
         return when (this) {
             Priority.URGENT_IMPORTANT -> 0
@@ -59,4 +70,10 @@ object ReminderRules {
             Priority.NOT_URGENT -> 3
         }
     }
+}
+
+enum class StartReminderAction {
+    IGNORE,
+    DEFER,
+    NOTIFY
 }
