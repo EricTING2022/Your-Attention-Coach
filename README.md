@@ -1,4 +1,3 @@
-````markdown
 # Attention Coach
 
 Attention Coach is an Android task planning and focus-coaching application designed for students and self-directed learners who struggle with passive timers, poor task estimation, app distraction, and lack of post-task reflection.
@@ -333,6 +332,3 @@ Attention Coach is intentionally more active than a passive Pomodoro timer. Inst
 * and weekly reflection.
 
 The soft-lock design is intentionally non-invasive. It does not block other apps or enforce device-level restrictions. Instead, it uses Android notifications and foreground monitoring to encourage the user to return to the intended focus task while still allowing legitimate temporary app switching through the whitelist.
-
----
-```
