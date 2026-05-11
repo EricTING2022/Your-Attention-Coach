@@ -36,4 +36,27 @@ object ReminderRules {
                 triggerAtMillis(task.date, task.startTime, zoneId) <= nowMillis
         }.map { it.id }
     }
+
+    fun highestPriorityDueTask(
+        tasks: List<PlannedTask>,
+        activeDueIds: Set<Long>
+    ): PlannedTask? {
+        return tasks.filter { task ->
+            task.id in activeDueIds &&
+                task.status != TaskStatus.FINISHED &&
+                task.status != TaskStatus.REVIEWED
+        }.minWithOrNull(
+            compareBy<PlannedTask> { it.priority.reminderRank() }
+                .thenBy { it.id }
+        )
+    }
+
+    private fun Priority.reminderRank(): Int {
+        return when (this) {
+            Priority.URGENT_IMPORTANT -> 0
+            Priority.URGENT -> 1
+            Priority.IMPORTANT -> 2
+            Priority.NOT_URGENT -> 3
+        }
+    }
 }

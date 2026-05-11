@@ -78,11 +78,63 @@ class ReminderRulesTest {
         assertEquals(listOf(1L), dueIds)
     }
 
+    @Test
+    fun highestPriorityDueTaskSelectsTopPriority() {
+        val tasks = listOf(
+            task(id = 1, priority = Priority.IMPORTANT),
+            task(id = 2, priority = Priority.URGENT),
+            task(id = 3, priority = Priority.URGENT_IMPORTANT),
+            task(id = 4, priority = Priority.NOT_URGENT)
+        )
+
+        val selected = ReminderRules.highestPriorityDueTask(tasks, setOf(1L, 2L, 3L, 4L))
+
+        assertEquals(3L, selected?.id)
+    }
+
+    @Test
+    fun highestPriorityDueTaskUsesCreationOrderWithinSamePriority() {
+        val tasks = listOf(
+            task(id = 3, priority = Priority.IMPORTANT),
+            task(id = 1, priority = Priority.IMPORTANT),
+            task(id = 2, priority = Priority.IMPORTANT)
+        )
+
+        val selected = ReminderRules.highestPriorityDueTask(tasks, setOf(1L, 2L, 3L))
+
+        assertEquals(1L, selected?.id)
+    }
+
+    @Test
+    fun highestPriorityDueTaskIgnoresCompletedAndUnknownTasks() {
+        val tasks = listOf(
+            task(id = 1, priority = Priority.URGENT_IMPORTANT, status = TaskStatus.FINISHED),
+            task(id = 2, priority = Priority.URGENT, status = TaskStatus.REVIEWED),
+            task(id = 3, priority = Priority.IMPORTANT, status = TaskStatus.PLANNED)
+        )
+
+        val selected = ReminderRules.highestPriorityDueTask(tasks, setOf(1L, 2L, 3L, 99L))
+
+        assertEquals(3L, selected?.id)
+    }
+
+    @Test
+    fun highestPriorityDueTaskReturnsNullWhenNoEligibleTaskExists() {
+        val tasks = listOf(
+            task(id = 1, priority = Priority.URGENT_IMPORTANT, status = TaskStatus.FINISHED)
+        )
+
+        val selected = ReminderRules.highestPriorityDueTask(tasks, setOf(1L, 99L))
+
+        assertEquals(null, selected)
+    }
+
     private fun task(
         id: Long,
         date: LocalDate = LocalDate.of(2026, 5, 11),
         startTime: LocalTime? = LocalTime.of(2, 0),
-        status: TaskStatus = TaskStatus.PLANNED
+        status: TaskStatus = TaskStatus.PLANNED,
+        priority: Priority = Priority.IMPORTANT
     ): PlannedTask {
         return PlannedTask(
             id = id,
@@ -91,7 +143,7 @@ class ReminderRulesTest {
             target = "Target",
             startTime = startTime,
             durationMinutes = 30,
-            priority = Priority.IMPORTANT,
+            priority = priority,
             status = status
         )
     }
