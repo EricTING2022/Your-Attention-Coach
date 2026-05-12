@@ -75,6 +75,7 @@ fun AttentionCoachApp(
     var selectedDate by remember { mutableStateOf(CalendarRules.today()) }
     var selectedTaskId by remember { mutableStateOf<Long?>(null) }
     var draftTask by remember { mutableStateOf<PlannedTask?>(null) }
+    var pendingStartTask by remember { mutableStateOf<PlannedTask?>(null) }
     var reentryOpen by remember { mutableStateOf(false) }
     var showAlarmPermissionPrompt by remember { mutableStateOf(false) }
     var activeDueReminderIds by remember { mutableStateOf(startReminderStore.activeDueIds()) }
@@ -290,6 +291,7 @@ fun AttentionCoachApp(
                 draftTask = null
             },
             onSavePlan = { updated ->
+                pendingStartTask = updated
                 viewModel.updateTask(updated)
                 scheduleReminderIfNeeded(updated)
             },
@@ -318,7 +320,9 @@ fun AttentionCoachApp(
                 selectedTaskId = null
             },
             onStartWork = {
-                val task = tasks.firstOrNull { task -> task.id == it }
+                val task = pendingStartTask?.takeIf { task -> task.id == it }
+                    ?: tasks.firstOrNull { task -> task.id == it }
+                pendingStartTask = null
                 TaskReminderReceiver.acknowledgeReminder(context, it)
                 activeDueReminderIds = startReminderStore.activeDueIds()
                 if (task != null) {
