@@ -7,7 +7,9 @@ import com.example.attentioncoach.data.RoomTaskRepository
 import com.example.attentioncoach.data.SettingsRepository
 import com.example.attentioncoach.data.TaskRepository
 import com.example.attentioncoach.data.local.AttentionCoachDatabase
+import com.example.attentioncoach.platform.FocusSessionStore
 import com.example.attentioncoach.data.settingsDataStore
+import com.example.attentioncoach.data.focusSessionDataStore
 
 class AppContainer(
     applicationContext: Context
@@ -23,4 +25,6 @@ class AppContainer(
     val settingsRepository: SettingsRepository = DataStoreSettingsRepository(
         applicationContext.settingsDataStore
     )
+
+    val focusSessionStore = FocusSessionStore(applicationContext.focusSessionDataStore)
 }

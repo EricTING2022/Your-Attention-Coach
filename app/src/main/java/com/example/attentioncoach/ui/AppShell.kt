@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,13 +24,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.attentioncoach.AttentionCoachApplication
 import com.example.attentioncoach.R
 import com.example.attentioncoach.domain.AppSettings
-import com.example.attentioncoach.domain.AppSettingsRules
 import com.example.attentioncoach.domain.ActiveWork
 import com.example.attentioncoach.domain.CalendarRules
 import com.example.attentioncoach.domain.DateIndicatorRules
-import com.example.attentioncoach.domain.DemoTaskRepository
 import com.example.attentioncoach.domain.NeededApp
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.Priority
@@ -38,7 +39,6 @@ import com.example.attentioncoach.domain.TaskStatus
 import com.example.attentioncoach.domain.TopLevelDestination
 import com.example.attentioncoach.domain.WorkSessionClock
 import com.example.attentioncoach.platform.AlarmPermissionHelper
-import com.example.attentioncoach.platform.FocusSessionStore
 import com.example.attentioncoach.platform.FocusMonitorService
 import com.example.attentioncoach.platform.InstalledAppsProvider
 import com.example.attentioncoach.platform.ReminderScheduleResult
@@ -47,7 +47,6 @@ import com.example.attentioncoach.platform.TaskReminderReceiver
 import com.example.attentioncoach.platform.TaskReminderScheduler
 import com.example.attentioncoach.platform.launchNeededApp
 import java.time.LocalDate
-import java.time.ZoneId
 
 @Composable
 fun AttentionCoachApp(
@@ -58,21 +57,24 @@ fun AttentionCoachApp(
     appEnteredAtMillis: Long = 0L
 ) {
     val context = LocalContext.current
-    val initialTasks = remember { DemoTaskRepository.seed() }
+    val container = remember(context) {
+        (context.applicationContext as AttentionCoachApplication).container
+    }
+    val viewModel: AttentionCoachViewModel = viewModel(
+        factory = AttentionCoachViewModelFactory(container)
+    )
+    val tasks by viewModel.tasks.collectAsState()
+    val appSettings by viewModel.settings.collectAsState()
+    val activeWork by viewModel.activeWork.collectAsState()
     val alarmPermissionHelper = remember(context) { AlarmPermissionHelper(context) }
     val reminderScheduler = remember(context) { TaskReminderScheduler(context, alarmPermissionHelper) }
-    val focusSessionStore = remember(context) { FocusSessionStore(context) }
     val startReminderStore = remember(context) { StartReminderStore(context) }
     val installedAppsProvider = remember(context) { InstalledAppsProvider(context) }
     val installedApps = remember(installedAppsProvider) { installedAppsProvider.launchableApps() }
     var destination by remember { mutableStateOf(TopLevelDestination.TASKS) }
     var selectedDate by remember { mutableStateOf(CalendarRules.today()) }
-    var tasks by remember { mutableStateOf(initialTasks) }
-    var nextTaskId by remember { mutableStateOf(initialTasks.nextTaskId()) }
     var selectedTaskId by remember { mutableStateOf<Long?>(null) }
     var draftTask by remember { mutableStateOf<PlannedTask?>(null) }
-    var activeWork by remember { mutableStateOf<ActiveWork?>(null) }
-    var appSettings by remember { mutableStateOf(AppSettings()) }
     var reentryOpen by remember { mutableStateOf(false) }
     var showAlarmPermissionPrompt by remember { mutableStateOf(false) }
     var activeDueReminderIds by remember { mutableStateOf(startReminderStore.activeDueIds()) }
@@ -118,7 +120,9 @@ fun AttentionCoachApp(
         val taskId = reentryTaskId ?: return@LaunchedEffect
         val task = tasks.firstOrNull { it.id == taskId }
         if (task != null) {
-            activeWork = activeWork?.takeIf { it.taskId == taskId } ?: task.toActiveWork()
+            if (activeWork?.taskId != taskId) {
+                viewModel.saveActiveWork(task.toActiveWork())
+            }
             selectedTaskId = null
             destination = TopLevelDestination.TASKS
             reentryOpen = true
@@ -143,14 +147,6 @@ fun AttentionCoachApp(
         activeDueReminderIds = startReminderStore.activeDueIds()
         activeDueReminderIds.forEach { taskId ->
             TaskReminderReceiver.cancelVisibleNotification(context, taskId)
-        }
-    }
-
-    LaunchedEffect(activeWorkTask?.id) {
-        if (activeWorkTask != null) {
-            focusSessionStore.setActive(activeWorkTask.id)
-        } else {
-            focusSessionStore.clearActive()
         }
     }
 
@@ -185,19 +181,19 @@ fun AttentionCoachApp(
                 onResume = { reentryOpen = false },
                 onAdjustPlan = {
                     reentryOpen = false
-                    activeWork = null
+                    viewModel.clearActiveWork()
                     selectedTaskId = activeWorkTask.id
                 },
                 onRecordReason = {
                     reentryOpen = false
-                    activeWork = null
+                    viewModel.clearActiveWork()
                     selectedTaskId = activeWorkTask.id
                 }
             )
         } else if (currentWork.isPaused) {
             PauseScreen(
                 activeWork = currentWork,
-                onResume = { activeWork = activeWork?.resumeAt(System.currentTimeMillis()) }
+                onResume = { viewModel.saveActiveWork(currentWork.resumeAt(System.currentTimeMillis())) }
             )
         } else {
             WorkScreen(
@@ -205,34 +201,25 @@ fun AttentionCoachApp(
                 activeWork = currentWork,
                 onPause = {
                     reentryOpen = false
-                    activeWork = activeWork?.pauseAt(System.currentTimeMillis())
+                    viewModel.saveActiveWork(currentWork.pauseAt(System.currentTimeMillis()))
                 },
                 onFinish = {
                     val work = activeWork
                     if (work != null) {
                         val activeMillis = WorkSessionClock.activeMillisAt(work, System.currentTimeMillis())
-                        val updatedTasks = tasks.map {
-                            if (it.id == work.taskId) {
-                                it.copy(
-                                    status = TaskStatus.FINISHED,
-                                    actualFocusMinutes = WorkSessionClock.focusMinutesFromMillis(activeMillis)
-                                )
-                            } else {
-                                it
-                            }
-                        }
-                        tasks = updatedTasks
-                        focusSessionStore.clearActive()
-                        releaseDeferredStartReminders(updatedTasks)
+                        viewModel.saveFocusFinish(
+                            taskId = work.taskId,
+                            actualFocusMinutes = WorkSessionClock.focusMinutesFromMillis(activeMillis)
+                        )
+                        viewModel.clearActiveWork()
+                        releaseDeferredStartReminders(tasks)
                     }
-                    activeWork = null
                     reentryOpen = false
                     destination = TopLevelDestination.TASKS
                 },
                 onExit = {
-                    focusSessionStore.clearActive()
+                    viewModel.clearActiveWork()
                     releaseDeferredStartReminders(tasks)
-                    activeWork = null
                     reentryOpen = false
                     destination = TopLevelDestination.TASKS
                 },
@@ -266,14 +253,12 @@ fun AttentionCoachApp(
                 selectedTaskId = it
             },
             onToggleTaskComplete = { taskId ->
-                tasks = tasks.map { task ->
-                    if (task.id == taskId) task.toggledCompletion() else task
-                }
+                viewModel.toggleCompletion(taskId)
             },
             onAddTask = {
                 selectedTaskId = null
                 draftTask = PlannedTask(
-                    id = nextTaskId,
+                    id = 0L,
                     date = selectedDate,
                     title = "",
                     target = "",
@@ -284,11 +269,9 @@ fun AttentionCoachApp(
             },
             settings = appSettings,
             availableApps = installedApps,
-            onAddNeededApp = { appSettings = AppSettingsRules.addNeededApp(appSettings, it) },
-            onRemoveNeededApp = { appSettings = AppSettingsRules.removeNeededApp(appSettings, it) },
-            onNotificationIntervalSelected = {
-                appSettings = AppSettingsRules.withNotificationInterval(appSettings, it)
-            }
+            onAddNeededApp = viewModel::addNeededApp,
+            onRemoveNeededApp = viewModel::removeNeededApp,
+            onNotificationIntervalSelected = viewModel::setNotificationInterval
         )
     }
 
@@ -301,23 +284,23 @@ fun AttentionCoachApp(
                 draftTask = null
             },
             onSavePlan = { updated ->
-                tasks = tasks.replaceTask(updated)
+                viewModel.updateTask(updated)
                 scheduleReminderIfNeeded(updated)
             },
             onCreateTask = { created ->
-                tasks = tasks + created
-                scheduleReminderIfNeeded(created)
-                nextTaskId = maxOf(nextTaskId, created.id + 1)
-                selectedTaskId = null
-                draftTask = null
-                destination = TopLevelDestination.TASKS
+                viewModel.createTask(created) { saved ->
+                    scheduleReminderIfNeeded(saved)
+                    selectedTaskId = null
+                    draftTask = null
+                    destination = TopLevelDestination.TASKS
+                }
             },
             onDeleteTask = { taskId ->
                 TaskReminderReceiver.acknowledgeReminder(context, taskId)
                 activeDueReminderIds = startReminderStore.activeDueIds()
-                tasks = tasks.filterNot { it.id == taskId }
+                viewModel.deleteTask(taskId)
                 if (activeWork?.taskId == taskId) {
-                    activeWork = null
+                    viewModel.clearActiveWork()
                     reentryOpen = false
                 }
                 selectedTaskId = null
@@ -325,25 +308,16 @@ fun AttentionCoachApp(
                 destination = TopLevelDestination.TASKS
             },
             onSaveReview = { taskId, completion, reason, adjustment ->
-                tasks = tasks.map {
-                    if (it.id == taskId) {
-                        it.copy(
-                            status = TaskStatus.REVIEWED,
-                            actualCompletion = completion,
-                            mismatchReason = reason,
-                            nextAdjustment = adjustment
-                        )
-                    } else {
-                        it
-                    }
-                }
+                viewModel.saveReview(taskId, completion, reason, adjustment)
                 selectedTaskId = null
             },
             onStartWork = {
                 val task = tasks.firstOrNull { task -> task.id == it }
                 TaskReminderReceiver.acknowledgeReminder(context, it)
                 activeDueReminderIds = startReminderStore.activeDueIds()
-                activeWork = task?.toActiveWork()
+                if (task != null) {
+                    viewModel.saveActiveWork(task.toActiveWork())
+                }
                 selectedTaskId = null
             }
         )
@@ -463,14 +437,6 @@ private fun TopLevelDestination.iconRes(): Int {
     }
 }
 
-private fun List<PlannedTask>.replaceTask(updated: PlannedTask): List<PlannedTask> {
-    return map { if (it.id == updated.id) updated else it }
-}
-
-private fun List<PlannedTask>.nextTaskId(): Long {
-    return (maxOfOrNull { it.id } ?: 0L) + 1L
-}
-
 private fun PlannedTask.toActiveWork(nowMillis: Long = System.currentTimeMillis()): ActiveWork {
     return ActiveWork(
         taskId = id,
@@ -478,23 +444,6 @@ private fun PlannedTask.toActiveWork(nowMillis: Long = System.currentTimeMillis(
         plannedDurationMinutes = durationMinutes,
         startedAtMillis = nowMillis
     )
-}
-
-private fun PlannedTask.toggledCompletion(): PlannedTask {
-    return if (status == TaskStatus.FINISHED || status == TaskStatus.REVIEWED) {
-        copy(
-            status = TaskStatus.PLANNED,
-            actualFocusMinutes = 0,
-            actualCompletion = "",
-            mismatchReason = "",
-            nextAdjustment = ""
-        )
-    } else {
-        copy(
-            status = TaskStatus.FINISHED,
-            actualFocusMinutes = 0
-        )
-    }
 }
 
 private fun ActiveWork.pauseAt(nowMillis: Long): ActiveWork {
