@@ -4,9 +4,9 @@
 
 **Goal:** Make focus re-entry monitoring reliable while a focus block is active: Attention Coach clears the reminder state, whitelist apps pause reminders, and every non-whitelisted/unknown destination triggers repeat re-entry reminders until the user returns to Attention Coach.
 
-**Architecture:** Keep the current foreground `FocusMonitorService` and `UsageStatsBoundary`, but stop treating UsageStats as the only source of truth. Add a small explicit re-entry state model, lifecycle signals from `MainActivity`, and a persisted single-shot alarm chain for screen-off repeat reminders. Reuse the start-time reminder pattern carefully: notification persistence and alarm chaining are reused, but full-screen re-entry is only used once for a screen-off violation chain.
+**Architecture:** Build on the current Room/DataStore persistence baseline. Keep the foreground `FocusMonitorService` and `UsageStatsBoundary`, but stop treating UsageStats as the only source of truth. Add a small explicit re-entry state model, lifecycle signals from `MainActivity`, and a DataStore-backed single-shot alarm chain for screen-off repeat reminders. Reuse the start-time reminder pattern carefully: notification persistence and alarm chaining are reused, but full-screen re-entry is only used once for a screen-off violation chain.
 
-**Tech Stack:** Kotlin, Android foreground service, `UsageStatsManager`, `AlarmManager`, `BroadcastReceiver`, `NotificationManager`, `SharedPreferences`, Jetpack Compose entry routing, JUnit 4 unit tests.
+**Tech Stack:** Kotlin, Android foreground service, `UsageStatsManager`, `AlarmManager`, `BroadcastReceiver`, `NotificationManager`, DataStore Preferences, existing Room task persistence, Jetpack Compose entry routing, JUnit 4 unit tests.
 
 ---
 
@@ -50,7 +50,8 @@ Clear semantics:
 - Do not redesign WorkScreen, ReentryScreen, task persistence, or review flows.
 - Do not use emulator/ADB smoke testing as a required verification step in this task.
 - Do not replace `UsageStatsBoundary` with AccessibilityService or a device admin style lock.
-- Do not introduce Room/DataStore. Use `SharedPreferences` only for the minimal re-entry alarm receiver state.
+- Do not change the Room schema or task/review persistence model.
+- Do not reintroduce `SharedPreferences` for new soft-lock runtime state. Use the existing DataStore direction for preferences/runtime state.
 
 ## Current Problems To Clean Up
 
@@ -60,6 +61,8 @@ Clear semantics:
 - Returning to Attention Coach manually does not have a unified `clearReentryState(...)` path.
 - `ReentryNotifier` uses `setTimeoutAfter(15_000L)`, so the notification object can disappear while the user still has not returned.
 - There is no re-entry `AlarmManager` fallback chain for screen-off violation reminders.
+- The project now uses Room for tasks/reviews and DataStore for settings/active focus recovery. The re-entry implementation must fit this architecture instead of adding a parallel SharedPreferences store.
+- `FocusSessionStore` already persists `ActiveWork` in DataStore. `FocusMonitorService` should use this as the source of focus-active truth when it needs recovery state, while `ReentryMonitorStateStore` should persist only re-entry-specific presence/reminder state.
 
 ## File Structure
 
@@ -76,7 +79,13 @@ Modify:
 - `app/src/main/java/com/example/attentioncoach/MainActivity.kt`
   - Notify `FocusMonitorService` when Attention Coach enters/leaves foreground.
 - `app/src/main/java/com/example/attentioncoach/ui/AppShell.kt`
-  - Keep starting/stopping monitor from active focus state; pass current whitelist and interval as today.
+  - Keep starting/stopping monitor from `AttentionCoachViewModel.activeWork`; pass the current DataStore-backed apps whitelist and interval.
+- `app/src/main/java/com/example/attentioncoach/ui/AttentionCoachViewModel.kt`
+  - No new business logic is required unless the service needs a tiny event wrapper; the ViewModel should remain the UI bridge for DataStore settings and active focus state.
+- `app/src/main/java/com/example/attentioncoach/data/DataStoreKeys.kt`
+  - Add a dedicated `reentryMonitorDataStore` if `ReentryMonitorStateStore` uses a separate DataStore file.
+- `app/src/main/java/com/example/attentioncoach/AppContainer.kt`
+  - Wire `ReentryMonitorStateStore` only if direct construction in platform classes is not sufficient.
 - `app/src/main/java/com/example/attentioncoach/platform/FocusMonitorService.kt`
   - Own lifecycle actions, re-entry state transitions, grace timer, screen receiver registration, persisted state writes, and alarm scheduling/canceling.
 - `app/src/main/java/com/example/attentioncoach/platform/UsageStatsBoundary.kt`
@@ -91,7 +100,7 @@ Create:
 - `app/src/main/java/com/example/attentioncoach/platform/ReentryReminderReceiver.kt`
   - Receives the persisted single-shot alarm and decides whether to notify/reschedule.
 - `app/src/main/java/com/example/attentioncoach/platform/ReentryMonitorStateStore.kt`
-  - Small SharedPreferences wrapper for active re-entry session state.
+  - Small DataStore wrapper for active re-entry session state.
 - `app/src/main/java/com/example/attentioncoach/platform/ReentryLockscreenActivity.kt`
   - Optional minimal full-screen route used only for the first screen-off violation reminder.
 
@@ -469,15 +478,24 @@ git commit -m "fix: keep reentry notifications visible"
 
 **Files:**
 
+- Modify: `app/src/main/java/com/example/attentioncoach/data/DataStoreKeys.kt`
 - Create: `app/src/main/java/com/example/attentioncoach/platform/ReentryMonitorStateStore.kt`
 - Create: `app/src/main/java/com/example/attentioncoach/platform/ReentryReminderReceiver.kt`
 - Modify: `app/src/main/java/com/example/attentioncoach/platform/FocusMonitorService.kt`
 - Modify: `app/src/main/java/com/example/attentioncoach/platform/ReentryNotifier.kt`
 - Modify: `app/src/main/AndroidManifest.xml`
 
-- [ ] **Step 1: Add minimal persisted state store**
+- [ ] **Step 1: Add minimal DataStore-backed persisted state store**
 
-Create `ReentryMonitorStateStore` using `SharedPreferences`.
+Add a dedicated DataStore in `DataStoreKeys.kt`:
+
+```kotlin
+val Context.reentryMonitorDataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "attention_coach_reentry_monitor"
+)
+```
+
+Create `ReentryMonitorStateStore` using this DataStore. Keep it narrow: this store owns re-entry presence/reminder state only. It must not duplicate task persistence, review persistence, settings persistence, or full active focus persistence.
 
 Persist only:
 
@@ -495,6 +513,8 @@ screenOffFullScreenShownForViolation: Boolean
 ```
 
 Use a session/task id guard so stale alarms for old tasks do nothing.
+
+DataStore operations are suspend-based. In `FocusMonitorService`, call them from service-owned coroutines. In `ReentryReminderReceiver`, use `goAsync()` and finish the pending result after the coroutine completes; do not block the main thread with long-running work.
 
 - [ ] **Step 2: Write state from service transitions**
 
@@ -514,7 +534,7 @@ Create `ReentryReminderReceiver : BroadcastReceiver`.
 
 `onReceive(...)` should:
 
-1. load persisted state;
+1. load persisted state from `ReentryMonitorStateStore`;
 2. return and cancel if `focusActive == false`;
 3. return and cancel if `attentionCoachInForeground == true`;
 4. return and cancel if `presence != OUTSIDE_ALLOWED_SCOPE`;
@@ -522,7 +542,7 @@ Create `ReentryReminderReceiver : BroadcastReceiver`.
 6. update `lastReentryNotificationAt`;
 7. schedule the next single-shot alarm after `notificationIntervalMillis`.
 
-Do not try to infer a new foreground app inside the receiver. The receiver uses persisted state; the service updates state while alive.
+Do not try to infer a new foreground app inside the receiver. The receiver uses persisted re-entry state; the service updates state while alive.
 
 - [ ] **Step 4: Add schedule/cancel helpers**
 
@@ -564,7 +584,7 @@ Expected: PASS.
 - [ ] **Step 7: Commit**
 
 ```powershell
-git add app/src/main/java/com/example/attentioncoach/platform/ReentryMonitorStateStore.kt app/src/main/java/com/example/attentioncoach/platform/ReentryReminderReceiver.kt app/src/main/java/com/example/attentioncoach/platform/FocusMonitorService.kt app/src/main/java/com/example/attentioncoach/platform/ReentryNotifier.kt app/src/main/AndroidManifest.xml
+git add app/src/main/java/com/example/attentioncoach/data/DataStoreKeys.kt app/src/main/java/com/example/attentioncoach/platform/ReentryMonitorStateStore.kt app/src/main/java/com/example/attentioncoach/platform/ReentryReminderReceiver.kt app/src/main/java/com/example/attentioncoach/platform/FocusMonitorService.kt app/src/main/java/com/example/attentioncoach/platform/ReentryNotifier.kt app/src/main/AndroidManifest.xml
 git commit -m "feat: repeat reentry reminders while screen off"
 ```
 
@@ -771,5 +791,6 @@ Behavior acceptance:
 Scope acceptance:
 
 - No start-time reminder behavior is changed except shared patterns being reused conceptually.
-- No Settings redesign, task model migration, Room/DataStore, or AccessibilityService is introduced.
+- No Settings redesign, Room schema change, task model migration, or AccessibilityService is introduced.
+- DataStore may be extended with a focused re-entry monitor store because the project now uses DataStore for runtime/preferences state.
 - Existing focus start/finish/pause flows remain intact.
