@@ -2,9 +2,12 @@ package com.example.attentioncoach
 
 import android.content.Context
 import androidx.room.Room
+import com.example.attentioncoach.data.DataStoreSettingsRepository
 import com.example.attentioncoach.data.RoomTaskRepository
+import com.example.attentioncoach.data.SettingsRepository
 import com.example.attentioncoach.data.TaskRepository
 import com.example.attentioncoach.data.local.AttentionCoachDatabase
+import com.example.attentioncoach.data.settingsDataStore
 
 class AppContainer(
     applicationContext: Context
@@ -16,4 +19,8 @@ class AppContainer(
     ).build()
 
     val taskRepository: TaskRepository = RoomTaskRepository(database)
+
+    val settingsRepository: SettingsRepository = DataStoreSettingsRepository(
+        applicationContext.settingsDataStore
+    )
 }
