@@ -55,7 +55,6 @@ internal fun PlannedTask.toReviewEntity(nowMillis: Long): TaskReviewEntity? {
         actualCompletion.isNotBlank() ||
         mismatchReason.isNotBlank() ||
         nextAdjustment.isNotBlank() ||
-        status == TaskStatus.FINISHED ||
         status == TaskStatus.REVIEWED
     if (!hasReviewData) return null
     return TaskReviewEntity(
