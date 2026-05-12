@@ -16,7 +16,9 @@ local.properties
 # Screenshots / captures
 captures/
 
+# Local git worktrees
+.worktrees/
+
 # OS
 .DS_Store
 Thumbs.db
-
