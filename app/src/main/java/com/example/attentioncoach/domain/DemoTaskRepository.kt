@@ -4,8 +4,14 @@ import java.time.LocalDate
 import java.time.LocalTime
 
 object DemoTaskRepository {
+    val demoDate: LocalDate = LocalDate.of(2026, 5, 5)
+
+    fun demoDayTasks(): List<PlannedTask> {
+        return seed().filter { it.date == demoDate }
+    }
+
     fun seed(): List<PlannedTask> {
-        val mayFive = LocalDate.of(2026, 5, 5)
+        val mayFive = demoDate
         return listOf(
             PlannedTask(
                 id = 1L,

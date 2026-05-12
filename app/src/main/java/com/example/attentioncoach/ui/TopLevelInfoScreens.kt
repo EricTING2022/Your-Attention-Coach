@@ -121,6 +121,7 @@ fun SettingsScreen(
     onAddNeededApp: (NeededApp) -> Unit,
     onRemoveNeededApp: (String) -> Unit,
     onNotificationIntervalSelected: (Int) -> Unit,
+    onSeedDemoDay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var pane by remember { mutableStateOf(SettingsPane.HOME) }
@@ -129,6 +130,7 @@ fun SettingsScreen(
             settings = settings,
             onWhitelistClick = { pane = SettingsPane.WHITELIST },
             onIntervalClick = { pane = SettingsPane.INTERVAL },
+            onSeedDemoDay = onSeedDemoDay,
             modifier = modifier
         )
 
@@ -158,6 +160,7 @@ private fun SettingsHome(
     settings: AppSettings,
     onWhitelistClick: () -> Unit,
     onIntervalClick: () -> Unit,
+    onSeedDemoDay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -174,6 +177,14 @@ private fun SettingsHome(
                 onWhitelistClick = onWhitelistClick,
                 onIntervalClick = onIntervalClick
             )
+        }
+        item {
+            Button(
+                onClick = onSeedDemoDay,
+                modifier = Modifier.fillMaxWidth().height(54.dp)
+            ) {
+                Text("Seed demo day", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

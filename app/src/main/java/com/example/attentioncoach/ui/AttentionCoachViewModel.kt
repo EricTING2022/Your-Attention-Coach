@@ -8,10 +8,11 @@ import com.example.attentioncoach.data.SettingsRepository
 import com.example.attentioncoach.data.TaskRepository
 import com.example.attentioncoach.domain.ActiveWork
 import com.example.attentioncoach.domain.AppSettings
-import com.example.attentioncoach.domain.AppSettingsDefaults
+import com.example.attentioncoach.domain.DemoTaskRepository
 import com.example.attentioncoach.domain.NeededApp
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.platform.FocusSessionStore
+import java.time.LocalDate
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -22,6 +23,8 @@ class AttentionCoachViewModel(
     private val settingsRepository: SettingsRepository,
     private val focusSessionStore: FocusSessionStore
 ) : ViewModel() {
+    private var lastSeedDemoAtMillis: Long = 0L
+
     val tasks: StateFlow<List<PlannedTask>> = taskRepository.observeTasks()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -91,6 +94,26 @@ class AttentionCoachViewModel(
         viewModelScope.launch {
             settingsRepository.setNotificationInterval(seconds)
         }
+    }
+
+    fun seedDemoDay(onSeeded: (LocalDate) -> Unit) {
+        val now = System.currentTimeMillis()
+        if (now - lastSeedDemoAtMillis < SEED_DEMO_COOLDOWN_MILLIS) {
+            onSeeded(DemoTaskRepository.demoDate)
+            return
+        }
+        lastSeedDemoAtMillis = now
+        viewModelScope.launch {
+            taskRepository.replaceDemoDay(
+                date = DemoTaskRepository.demoDate,
+                demoTasks = DemoTaskRepository.demoDayTasks()
+            )
+            onSeeded(DemoTaskRepository.demoDate)
+        }
+    }
+
+    private companion object {
+        const val SEED_DEMO_COOLDOWN_MILLIS = 1_500L
     }
 }
 

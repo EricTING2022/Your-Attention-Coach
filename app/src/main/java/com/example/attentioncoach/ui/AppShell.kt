@@ -271,7 +271,13 @@ fun AttentionCoachApp(
             availableApps = installedApps,
             onAddNeededApp = viewModel::addNeededApp,
             onRemoveNeededApp = viewModel::removeNeededApp,
-            onNotificationIntervalSelected = viewModel::setNotificationInterval
+            onNotificationIntervalSelected = viewModel::setNotificationInterval,
+            onSeedDemoDay = {
+                viewModel.seedDemoDay { demoDate ->
+                    selectedDate = demoDate
+                    destination = TopLevelDestination.TASKS
+                }
+            }
         )
     }
 
@@ -391,7 +397,8 @@ private fun TopLevelScreen(
     availableApps: List<NeededApp>,
     onAddNeededApp: (NeededApp) -> Unit,
     onRemoveNeededApp: (String) -> Unit,
-    onNotificationIntervalSelected: (Int) -> Unit
+    onNotificationIntervalSelected: (Int) -> Unit,
+    onSeedDemoDay: () -> Unit
 ) {
     when (destination) {
         TopLevelDestination.TASKS -> TodayScreen(
@@ -422,6 +429,7 @@ private fun TopLevelScreen(
             onAddNeededApp = onAddNeededApp,
             onRemoveNeededApp = onRemoveNeededApp,
             onNotificationIntervalSelected = onNotificationIntervalSelected,
+            onSeedDemoDay = onSeedDemoDay,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
