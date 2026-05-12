@@ -1,6 +1,14 @@
 package com.example.attentioncoach.platform
 
 import android.content.SharedPreferences
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import com.example.attentioncoach.domain.ActiveWork
+import java.io.File
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -8,13 +16,28 @@ import org.junit.Test
 
 class ReminderStoresTest {
     @Test
-    fun focusSessionStorePersistsActiveTask() {
-        val store = FocusSessionStore(FakeSharedPreferences())
+    fun focusSessionStorePersistsFullActiveWork() = runBlocking {
+        val store = FocusSessionStore(
+            PreferenceDataStoreFactory.create(
+                scope = CoroutineScope(Dispatchers.IO + SupervisorJob()),
+                produceFile = { File.createTempFile("focus-session", ".preferences_pb") }
+            )
+        )
+        val work = ActiveWork(
+            taskId = 42L,
+            isActive = true,
+            plannedDurationMinutes = 30,
+            startedAtMillis = 1000L,
+            accumulatedActiveMillis = 5000L,
+            pauseStartedAtMillis = 7000L,
+            isPaused = true
+        )
 
-        store.setActive(taskId = 42L)
+        store.setActive(work)
 
         assertTrue(store.isActive())
         assertEquals(42L, store.activeTaskId())
+        assertEquals(work, store.activeWork.first())
 
         store.clearActive()
 
