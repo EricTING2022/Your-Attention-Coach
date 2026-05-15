@@ -121,6 +121,8 @@ fun SettingsScreen(
     onAddNeededApp: (NeededApp) -> Unit,
     onRemoveNeededApp: (String) -> Unit,
     onNotificationIntervalSelected: (Int) -> Unit,
+    accessibilityDetectionEnabled: Boolean,
+    onOpenAccessibilitySettings: () -> Unit,
     onSeedDemoDay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -128,8 +130,10 @@ fun SettingsScreen(
     when (pane) {
         SettingsPane.HOME -> SettingsHome(
             settings = settings,
+            accessibilityDetectionEnabled = accessibilityDetectionEnabled,
             onWhitelistClick = { pane = SettingsPane.WHITELIST },
             onIntervalClick = { pane = SettingsPane.INTERVAL },
+            onAccessibilityClick = onOpenAccessibilitySettings,
             onSeedDemoDay = onSeedDemoDay,
             modifier = modifier
         )
@@ -158,8 +162,10 @@ fun SettingsScreen(
 @Composable
 private fun SettingsHome(
     settings: AppSettings,
+    accessibilityDetectionEnabled: Boolean,
     onWhitelistClick: () -> Unit,
     onIntervalClick: () -> Unit,
+    onAccessibilityClick: () -> Unit,
     onSeedDemoDay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -174,8 +180,10 @@ private fun SettingsHome(
             SettingsMenuCard(
                 whitelistSummary = SettingsDisplayRules.whitelistSummary(settings.neededApps.size),
                 intervalSummary = SettingsDisplayRules.intervalLabel(settings.notificationIntervalSeconds),
+                accessibilitySummary = if (accessibilityDetectionEnabled) "Ready" else "Needs setup",
                 onWhitelistClick = onWhitelistClick,
-                onIntervalClick = onIntervalClick
+                onIntervalClick = onIntervalClick,
+                onAccessibilityClick = onAccessibilityClick
             )
         }
         item {
@@ -446,8 +454,10 @@ private fun formatSessionCount(count: Int): String {
 private fun SettingsMenuCard(
     whitelistSummary: String,
     intervalSummary: String,
+    accessibilitySummary: String,
     onWhitelistClick: () -> Unit,
-    onIntervalClick: () -> Unit
+    onIntervalClick: () -> Unit,
+    onAccessibilityClick: () -> Unit
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color.White),
@@ -467,6 +477,13 @@ private fun SettingsMenuCard(
                 label = "Notification interval",
                 value = intervalSummary,
                 onClick = onIntervalClick
+            )
+            HorizontalDivider(color = UiTokens.Outline)
+            SettingsMenuRow(
+                iconRes = R.drawable.ic_apps_grid_24,
+                label = "Foreground detection",
+                value = accessibilitySummary,
+                onClick = onAccessibilityClick
             )
         }
     }

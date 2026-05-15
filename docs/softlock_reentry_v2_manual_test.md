@@ -120,8 +120,118 @@ Layer 0 is considered passed when:
 - Pause, finish, and exit flows do not break.
 - Apps whitelist and notification interval persist after app restart.
 
+## Layer 0 Result
+
+Status: Passed by manual real-device smoke testing.
+
+Result reported on 2026-05-15:
+
+- Focus timer starts successfully.
+- Pause, finish, and exit flows work.
+- Settings persistence works for Apps whitelist and notification interval.
+- No Layer 0 blocking issue was reported.
+
 ## Notes For Later Layers
 
 Do not use Layer 0 to judge softlock correctness. The current main baseline still relies on UsageStats-based focus monitoring, which is known to be insufficient for reliable whitelist / launcher / non-whitelist distinction on the real device.
 
 Layer 1 will add the primary Accessibility foreground observer and must be tested separately with foreground package logs.
+
+## Layer 1 Manual Test: Primary Foreground Observer
+
+Layer 1 only verifies foreground package detection. It does not validate re-entry reminder behavior yet.
+
+### Setup
+
+1. Install the Layer 1 debug APK.
+2. Open Attention Coach.
+3. Go to `Settings`.
+4. Tap `Foreground detection`.
+5. In Android Accessibility settings, enable the Attention Coach service.
+6. Return to Attention Coach.
+
+Expected setup result:
+
+- Settings shows `Foreground detection` as `Ready` after the service is enabled.
+- Logcat shows `AC_ForegroundV2: connected` after the service starts.
+
+### Log Capture
+
+Use:
+
+```powershell
+adb logcat -c
+adb logcat -v time -s AC_ForegroundV2
+```
+
+### S01-1: Attention Coach Foreground
+
+Steps:
+
+1. Open Attention Coach.
+2. Navigate between Tasks, Insights, and Settings.
+
+Expected log evidence:
+
+- `chosenPackage=com.example.attentioncoach` appears, or Attention Coach is otherwise visible as `eventPackage`, `rootPackage`, or a window package.
+
+### S01-2: Whitelist App Foreground
+
+Steps:
+
+1. Open Chrome or another app in Apps whitelist.
+2. Stay in that app for several seconds.
+
+Expected log evidence:
+
+- The app package appears as `chosenPackage`, for example `chosenPackage=com.android.chrome`.
+
+### S01-3: Launcher Foreground
+
+Steps:
+
+1. Press Home.
+2. Stay on the launcher for several seconds.
+
+Expected log evidence:
+
+- The launcher package appears as `chosenPackage`.
+- The launcher package must be non-null and different from the whitelist package.
+
+### S01-4: Non-whitelist App Foreground
+
+Steps:
+
+1. Open an app that is not in Apps whitelist.
+2. Stay in that app for several seconds.
+
+Expected log evidence:
+
+- That app's package appears as `chosenPackage`.
+- It must be distinguishable from Attention Coach, whitelist apps, and launcher.
+
+### S01-5: Screen-off Does Not Erase Last Reliable Package
+
+Steps:
+
+1. Open Attention Coach, then turn the screen off.
+2. Turn the screen on and check recent logs.
+3. Open a whitelist app, then turn the screen off.
+4. Turn the screen on and check recent logs.
+
+Expected log evidence:
+
+- Screen-off does not create fake foreground packages.
+- The observer does not collapse all states into `chosenPackage=null` immediately after screen-off.
+
+### Layer 1 Pass Criteria
+
+Layer 1 is considered passed only when real-device logs prove all of these:
+
+- Attention Coach package can be observed.
+- A whitelist app package can be observed.
+- Launcher package can be observed.
+- A non-whitelist app package can be observed.
+- The four states are distinguishable by package.
+
+If `chosenPackage` stays `null`, or if whitelist / launcher / non-whitelist all look the same, stop before Layer 2. The Accessibility observer must be fixed before any re-entry policy is implemented.

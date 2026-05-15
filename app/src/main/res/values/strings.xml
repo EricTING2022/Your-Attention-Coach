@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">Attention Coach</string>
+    <string name="accessibility_service_description">Allows Attention Coach to detect whether the foreground app is Attention Coach, an apps whitelist app, launcher, or another app during focus sessions.</string>
 </resources>
 

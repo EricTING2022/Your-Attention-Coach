@@ -55,6 +55,28 @@ object FocusMonitorCadence {
     const val REENTRY_COOLDOWN_MILLIS = 30_000L
 }
 
+object ForegroundObservationRules {
+    fun choosePackage(
+        eventPackage: String?,
+        rootPackage: String?,
+        windowPackages: List<String>
+    ): String? {
+        return sequenceOf(eventPackage, rootPackage)
+            .plus(windowPackages.asSequence())
+            .mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
+            .firstOrNull()
+    }
+
+    fun freshOrNull(
+        observation: ForegroundObservation?,
+        nowMillis: Long,
+        maxAgeMillis: Long
+    ): ForegroundObservation? {
+        if (observation == null) return null
+        return observation.takeIf { nowMillis - it.observedAtMillis <= maxAgeMillis }
+    }
+}
+
 object SoftLockPolicy {
     private const val APP_PACKAGE = "com.example.attentioncoach"
 

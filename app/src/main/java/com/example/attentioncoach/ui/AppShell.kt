@@ -13,6 +13,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -24,7 +25,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.attentioncoach.AttentionCoachApplication
 import com.example.attentioncoach.R
 import com.example.attentioncoach.domain.AppSettings
@@ -38,6 +42,7 @@ import com.example.attentioncoach.domain.ReminderRules
 import com.example.attentioncoach.domain.TaskStatus
 import com.example.attentioncoach.domain.TopLevelDestination
 import com.example.attentioncoach.domain.WorkSessionClock
+import com.example.attentioncoach.platform.AccessibilityForegroundHelper
 import com.example.attentioncoach.platform.AlarmPermissionHelper
 import com.example.attentioncoach.platform.FocusMonitorService
 import com.example.attentioncoach.platform.InstalledAppsProvider
@@ -57,6 +62,7 @@ fun AttentionCoachApp(
     appEnteredAtMillis: Long = 0L
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val container = remember(context) {
         (context.applicationContext as AttentionCoachApplication).container
     }
@@ -67,6 +73,10 @@ fun AttentionCoachApp(
     val appSettings by viewModel.settings.collectAsState()
     val activeWork by viewModel.activeWork.collectAsState()
     val alarmPermissionHelper = remember(context) { AlarmPermissionHelper(context) }
+    val accessibilityForegroundHelper = remember(context) { AccessibilityForegroundHelper(context) }
+    var accessibilityDetectionEnabled by remember {
+        mutableStateOf(accessibilityForegroundHelper.isForegroundObserverEnabled())
+    }
     val reminderScheduler = remember(context) { TaskReminderScheduler(context, alarmPermissionHelper) }
     val startReminderStore = remember(context) { StartReminderStore(context) }
     val installedAppsProvider = remember(context) { InstalledAppsProvider(context) }
@@ -114,6 +124,18 @@ fun AttentionCoachApp(
                 task = selectedReminderTask,
                 repeatIntervalSeconds = appSettings.notificationIntervalSeconds
             )
+        }
+    }
+
+    DisposableEffect(lifecycleOwner, accessibilityForegroundHelper) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                accessibilityDetectionEnabled = accessibilityForegroundHelper.isForegroundObserverEnabled()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -273,6 +295,8 @@ fun AttentionCoachApp(
             onAddNeededApp = viewModel::addNeededApp,
             onRemoveNeededApp = viewModel::removeNeededApp,
             onNotificationIntervalSelected = viewModel::setNotificationInterval,
+            accessibilityDetectionEnabled = accessibilityDetectionEnabled,
+            onOpenAccessibilitySettings = accessibilityForegroundHelper::openAccessibilitySettings,
             onSeedDemoDay = {
                 viewModel.seedDemoDay { demoDate ->
                     selectedDate = demoDate
@@ -402,6 +426,8 @@ private fun TopLevelScreen(
     onAddNeededApp: (NeededApp) -> Unit,
     onRemoveNeededApp: (String) -> Unit,
     onNotificationIntervalSelected: (Int) -> Unit,
+    accessibilityDetectionEnabled: Boolean,
+    onOpenAccessibilitySettings: () -> Unit,
     onSeedDemoDay: () -> Unit
 ) {
     when (destination) {
@@ -433,6 +459,8 @@ private fun TopLevelScreen(
             onAddNeededApp = onAddNeededApp,
             onRemoveNeededApp = onRemoveNeededApp,
             onNotificationIntervalSelected = onNotificationIntervalSelected,
+            accessibilityDetectionEnabled = accessibilityDetectionEnabled,
+            onOpenAccessibilitySettings = onOpenAccessibilitySettings,
             onSeedDemoDay = onSeedDemoDay,
             modifier = Modifier
                 .fillMaxSize()

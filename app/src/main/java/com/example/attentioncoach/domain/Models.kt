@@ -43,6 +43,17 @@ data class ReentryDecision(
     val reason: ReentryReason
 )
 
+data class ForegroundObservation(
+    val packageName: String,
+    val source: ForegroundSource,
+    val observedAtMillis: Long
+)
+
+enum class ForegroundSource {
+    ACCESSIBILITY,
+    USAGE_STATS
+}
+
 enum class ReentryReason {
     INACTIVE,
     SELF,
