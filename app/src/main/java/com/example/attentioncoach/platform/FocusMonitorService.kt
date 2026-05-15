@@ -15,16 +15,20 @@ import com.example.attentioncoach.domain.ForegroundPresenceMemory
 import com.example.attentioncoach.domain.FocusPresence
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.PresenceReentryPolicy
+import com.example.attentioncoach.domain.ReentryReason
+import com.example.attentioncoach.domain.ScreenOffReentryPolicy
 
 class FocusMonitorService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var foregroundObservationStore: ForegroundObservationStore
     private lateinit var launcherPackagesProvider: LauncherPackagesProvider
+    private lateinit var reentryMonitorStateStore: ReentryMonitorStateStore
     private lateinit var notifier: ReentryNotifier
     private var session: MonitorSession? = null
     private var lastNotificationMillis: Long? = null
     private var violationStartedAtMillis: Long? = null
     private var lastStablePresence: FocusPresence? = null
+    private var lastScheduledScreenOffAtMillis: Long? = null
 
     private val monitorTick = object : Runnable {
         override fun run() {
@@ -37,6 +41,7 @@ class FocusMonitorService : Service() {
         super.onCreate()
         foregroundObservationStore = ForegroundObservationStore(this)
         launcherPackagesProvider = LauncherPackagesProvider(this)
+        reentryMonitorStateStore = ReentryMonitorStateStore(this)
         notifier = ReentryNotifier(this)
         notifier.ensureChannels()
     }
@@ -78,6 +83,7 @@ class FocusMonitorService : Service() {
         lastNotificationMillis = null
         violationStartedAtMillis = null
         lastStablePresence = null
+        lastScheduledScreenOffAtMillis = null
         startForeground(ACTIVE_WORK_NOTIFICATION_ID, notifier.buildActiveWorkNotification(taskId, taskTitle))
         handler.removeCallbacks(monitorTick)
         handler.post(monitorTick)
@@ -86,6 +92,10 @@ class FocusMonitorService : Service() {
     private fun stopMonitoring() {
         handler.removeCallbacks(monitorTick)
         session = null
+        if (::reentryMonitorStateStore.isInitialized) {
+            reentryMonitorStateStore.clear()
+        }
+        ReentryReminderReceiver.cancel(this)
         if (::notifier.isInitialized) {
             notifier.clearReentryBanner()
         }
@@ -102,6 +112,9 @@ class FocusMonitorService : Service() {
         val taskId = intent.getLongExtra(EXTRA_TASK_ID, INVALID_TASK_ID)
         if (session?.taskId == taskId) {
             lastNotificationMillis = null
+            violationStartedAtMillis = null
+            ReentryReminderReceiver.cancel(this)
+            notifier.clearReentryBanner()
         }
         if (session == null) {
             stopSelf()
@@ -112,10 +125,13 @@ class FocusMonitorService : Service() {
         val activeSession = session ?: return
         val nowMillis = System.currentTimeMillis()
         val presence = resolvePresence(activeSession, nowMillis)
+        persistMonitorState(activeSession, presence)
         if (!isDeviceInteractive()) {
-            Log.d(PRESENCE_TAG, "screenOffSkip presence=$presence")
+            handleScreenOff(activeSession, presence, nowMillis)
             return
         }
+        ReentryReminderReceiver.cancel(this)
+        lastScheduledScreenOffAtMillis = null
         val decision = PresenceReentryPolicy.screenOnDecision(
             activeWorkBlock = true,
             presence = presence,
@@ -137,6 +153,53 @@ class FocusMonitorService : Service() {
         }
         if (decision.shouldNotify) {
             notifier.showReentryBanner(activeSession.taskId, activeSession.taskTitle)
+        }
+        persistMonitorState(activeSession, presence)
+    }
+
+    private fun handleScreenOff(
+        activeSession: MonitorSession,
+        presence: FocusPresence,
+        nowMillis: Long
+    ) {
+        val decision = ScreenOffReentryPolicy.alarmDecision(
+            activeWorkBlock = true,
+            presence = presence,
+            nowMillis = nowMillis,
+            violationStartedAtMillis = violationStartedAtMillis,
+            lastNotificationMillis = lastNotificationMillis,
+            reentryCooldownMillis = activeSession.reentryCooldownMillis
+        )
+        violationStartedAtMillis = decision.nextViolationStartedAtMillis
+        lastNotificationMillis = decision.nextLastNotificationMillis
+        Log.d(
+            REENTRY_ALARM_TAG,
+            "screenOff presence=$presence reason=${decision.reason} " +
+                "schedule=${decision.shouldScheduleAlarm} clear=${decision.shouldClearAlarm} " +
+                "delay=${decision.delayMillis} violationStarted=$violationStartedAtMillis " +
+                "lastNotification=$lastNotificationMillis"
+        )
+        if (decision.shouldClearAlarm) {
+            ReentryReminderReceiver.cancel(this)
+            lastScheduledScreenOffAtMillis = null
+            notifier.clearReentryBanner()
+        } else if (decision.shouldScheduleAlarm) {
+            val triggerAtMillis = screenOffTriggerAtMillis(decision.reason, decision.delayMillis)
+            if (lastScheduledScreenOffAtMillis != triggerAtMillis) {
+                ReentryReminderReceiver.schedule(this, decision.delayMillis)
+                lastScheduledScreenOffAtMillis = triggerAtMillis
+            }
+        }
+        persistMonitorState(activeSession, presence)
+    }
+
+    private fun screenOffTriggerAtMillis(reason: ReentryReason, delayMillis: Long): Long {
+        return when (reason) {
+            ReentryReason.GRACE_PERIOD ->
+                (violationStartedAtMillis ?: System.currentTimeMillis()) + FocusMonitorCadence.REENTRY_GRACE_MILLIS
+            ReentryReason.COOLDOWN ->
+                (lastNotificationMillis ?: System.currentTimeMillis()) + (session?.reentryCooldownMillis ?: FocusMonitorCadence.REENTRY_COOLDOWN_MILLIS)
+            else -> System.currentTimeMillis() + delayMillis
         }
     }
 
@@ -172,6 +235,23 @@ class FocusMonitorService : Service() {
         return getSystemService(PowerManager::class.java)?.isInteractive ?: true
     }
 
+    private fun persistMonitorState(
+        activeSession: MonitorSession,
+        presence: FocusPresence
+    ) {
+        reentryMonitorStateStore.save(
+            ReentryMonitorState(
+                active = true,
+                taskId = activeSession.taskId,
+                taskTitle = activeSession.taskTitle,
+                presence = presence,
+                violationStartedAtMillis = violationStartedAtMillis,
+                lastNotificationMillis = lastNotificationMillis,
+                reentryCooldownMillis = activeSession.reentryCooldownMillis
+            )
+        )
+    }
+
     companion object {
         private const val ACTION_START = "com.example.attentioncoach.monitor.START"
         private const val ACTION_STOP = "com.example.attentioncoach.monitor.STOP"
@@ -185,6 +265,7 @@ class FocusMonitorService : Service() {
         private const val ACTIVE_WORK_NOTIFICATION_ID = 4520
         private const val PRESENCE_TAG = "AC_PresenceV2"
         private const val REENTRY_TAG = "AC_ReentryV2"
+        private const val REENTRY_ALARM_TAG = "AC_ReentryAlarmV2"
 
         private val DEFAULT_LEISURE_PACKAGES = arrayOf(
             "com.google.android.youtube",

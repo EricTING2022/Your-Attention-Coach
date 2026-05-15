@@ -55,5 +55,8 @@
         <receiver
             android:name=".platform.TaskReminderReceiver"
             android:exported="false" />
+        <receiver
+            android:name=".platform.ReentryReminderReceiver"
+            android:exported="false" />
     </application>
 </manifest>

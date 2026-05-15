@@ -250,3 +250,75 @@ object PresenceReentryPolicy {
         )
     }
 }
+
+object ScreenOffReentryPolicy {
+    fun alarmDecision(
+        activeWorkBlock: Boolean,
+        presence: FocusPresence,
+        nowMillis: Long,
+        violationStartedAtMillis: Long?,
+        lastNotificationMillis: Long?,
+        graceMillis: Long = FocusMonitorCadence.REENTRY_GRACE_MILLIS,
+        reentryCooldownMillis: Long = FocusMonitorCadence.REENTRY_COOLDOWN_MILLIS
+    ): ScreenOffReentryDecision {
+        if (!activeWorkBlock) {
+            return ScreenOffReentryDecision(
+                shouldScheduleAlarm = false,
+                shouldClearAlarm = true,
+                delayMillis = 0L,
+                nextViolationStartedAtMillis = null,
+                nextLastNotificationMillis = null,
+                reason = ReentryReason.INACTIVE
+            )
+        }
+        return when (presence) {
+            FocusPresence.IN_ATTENTION_COACH -> clearAlarm(ReentryReason.SELF)
+            FocusPresence.IN_WHITELIST_APP -> clearAlarm(ReentryReason.NEEDED_APP)
+            FocusPresence.UNKNOWN -> ScreenOffReentryDecision(
+                shouldScheduleAlarm = false,
+                shouldClearAlarm = false,
+                delayMillis = 0L,
+                nextViolationStartedAtMillis = violationStartedAtMillis,
+                nextLastNotificationMillis = lastNotificationMillis,
+                reason = ReentryReason.UNKNOWN
+            )
+            FocusPresence.IN_LAUNCHER,
+            FocusPresence.IN_OTHER_APP -> {
+                val startedAt = violationStartedAtMillis ?: nowMillis
+                val graceRemaining = graceMillis - (nowMillis - startedAt)
+                if (graceRemaining > 0L) {
+                    return ScreenOffReentryDecision(
+                        shouldScheduleAlarm = true,
+                        shouldClearAlarm = false,
+                        delayMillis = graceRemaining,
+                        nextViolationStartedAtMillis = startedAt,
+                        nextLastNotificationMillis = lastNotificationMillis,
+                        reason = ReentryReason.GRACE_PERIOD
+                    )
+                }
+                val cooldownRemaining = lastNotificationMillis?.let {
+                    reentryCooldownMillis - (nowMillis - it)
+                } ?: 0L
+                ScreenOffReentryDecision(
+                    shouldScheduleAlarm = true,
+                    shouldClearAlarm = false,
+                    delayMillis = cooldownRemaining.coerceAtLeast(0L),
+                    nextViolationStartedAtMillis = startedAt,
+                    nextLastNotificationMillis = if (cooldownRemaining <= 0L) nowMillis else lastNotificationMillis,
+                    reason = if (cooldownRemaining > 0L) ReentryReason.COOLDOWN else ReentryReason.NON_NEEDED_APP
+                )
+            }
+        }
+    }
+
+    private fun clearAlarm(reason: ReentryReason): ScreenOffReentryDecision {
+        return ScreenOffReentryDecision(
+            shouldScheduleAlarm = false,
+            shouldClearAlarm = true,
+            delayMillis = 0L,
+            nextViolationStartedAtMillis = null,
+            nextLastNotificationMillis = null,
+            reason = reason
+        )
+    }
+}

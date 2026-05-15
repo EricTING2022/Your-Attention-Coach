@@ -82,6 +82,15 @@ data class PresenceReentryDecision(
     val reason: ReentryReason
 )
 
+data class ScreenOffReentryDecision(
+    val shouldScheduleAlarm: Boolean,
+    val shouldClearAlarm: Boolean,
+    val delayMillis: Long,
+    val nextViolationStartedAtMillis: Long?,
+    val nextLastNotificationMillis: Long?,
+    val reason: ReentryReason
+)
+
 data class ActiveWork(
     val taskId: Long,
     val isActive: Boolean,

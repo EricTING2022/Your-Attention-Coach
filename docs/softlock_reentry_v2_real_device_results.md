@@ -177,3 +177,38 @@ Expected log shape:
 ```text
 AC_ReentryV2: presence=<presence> reason=<reason> shouldNotify=<true|false> shouldClear=<true|false> violationStarted=<millis|null> lastNotification=<millis|null>
 ```
+
+## Layer 4 Result
+
+Status: Pending real-device test.
+
+Layer 4 adds screen-off re-entry alarms.
+
+Implementation summary:
+
+- `FocusMonitorService` persists a narrow `ReentryMonitorState` containing only active task id/title, effective presence, violation start time, last notification time, and notification interval.
+- `ReentryReminderReceiver` uses a single-shot AlarmManager chain while the screen is off.
+- Screen-off logic reads the last reliable effective `FocusPresence`; it does not use `com.android.systemui` as a user app signal.
+- Returning to screen-on monitoring cancels the pending re-entry alarm.
+- Stopping focus monitoring clears persisted re-entry state, visible re-entry notification, and pending alarm.
+
+Expected behavior:
+
+- Screen off from `IN_ATTENTION_COACH`: no screen-off reminder.
+- Screen off from `IN_WHITELIST_APP`: no screen-off reminder.
+- Screen off from `IN_LAUNCHER`: screen-off reminder repeats by notification interval.
+- Screen off from `IN_OTHER_APP`: screen-off reminder repeats by notification interval.
+- Returning to Attention Coach cancels visible reminders and pending alarms.
+
+New diagnostic tag:
+
+```text
+AC_ReentryAlarmV2
+```
+
+Expected log shape:
+
+```text
+AC_ReentryAlarmV2: screenOff presence=<presence> reason=<reason> schedule=<true|false> clear=<true|false> delay=<millis> violationStarted=<millis|null> lastNotification=<millis|null>
+AC_ReentryAlarmV2: alarm presence=<presence> reason=<reason> delay=<millis> task=<taskId>
+```

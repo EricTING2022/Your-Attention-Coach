@@ -453,3 +453,105 @@ Layer 3 is considered passed when:
 - Moving from launcher/non-whitelist app to whitelist app clears and suppresses reminders.
 - Moving from whitelist app to launcher/non-whitelist app starts a new grace period and reminds again.
 - Returning to Attention Coach clears the reminder.
+
+## Layer 4 Manual Test: Screen-off Re-entry Alarms
+
+Layer 4 adds screen-off reminders using a single-shot AlarmManager chain. It uses the last reliable `FocusPresence` from Layer 2/3; it does not classify `com.android.systemui` as a user app.
+
+### Setup
+
+1. Install the Layer 4 debug APK.
+2. Enable `Foreground detection` in Android Accessibility settings.
+3. Add Chrome, or another test app, to `Apps whitelist`.
+4. Set `Notification interval` to a short value such as `30s`.
+5. Start a focus timer.
+
+### Log Capture
+
+Use:
+
+```powershell
+adb logcat -c
+adb logcat -v time -s AC_ForegroundV2 AC_PresenceV2 AC_ReentryV2 AC_ReentryAlarmV2
+```
+
+### S04-1: Focus Page To Screen Off Does Not Remind
+
+Steps:
+
+1. Stay on the focus timer page.
+2. Turn the screen off.
+3. Wait longer than one notification interval.
+
+Expected result:
+
+- No re-entry reminder appears.
+- `AC_ReentryAlarmV2` shows `presence=IN_ATTENTION_COACH` with `clear=true` or no scheduled alarm.
+
+### S04-2: Whitelist App To Screen Off Does Not Remind
+
+Steps:
+
+1. Open Chrome or another Apps whitelist app.
+2. Turn the screen off.
+3. Wait longer than one notification interval.
+
+Expected result:
+
+- No re-entry reminder appears.
+- `AC_ReentryAlarmV2` shows `presence=IN_WHITELIST_APP` with `clear=true` or no scheduled alarm.
+
+### S04-3: Launcher To Screen Off Repeats Reminder
+
+Steps:
+
+1. From focus timer, press Home.
+2. Wait until the app classifies launcher as `IN_LAUNCHER`.
+3. Turn the screen off.
+4. Wait for the first reminder and at least one repeat interval.
+
+Expected result:
+
+- Re-entry reminder appears while the screen is off / locked.
+- Reminder repeats by the configured notification interval.
+- `AC_ReentryAlarmV2` shows `presence=IN_LAUNCHER`.
+
+### S04-4: Non-whitelist App To Screen Off Repeats Reminder
+
+Steps:
+
+1. Open a non-whitelist app.
+2. Wait until the app classifies it as `IN_OTHER_APP`.
+3. Turn the screen off.
+4. Wait for the first reminder and at least one repeat interval.
+
+Expected result:
+
+- Re-entry reminder appears while the screen is off / locked.
+- Reminder repeats by the configured notification interval.
+- `AC_ReentryAlarmV2` shows `presence=IN_OTHER_APP`.
+
+### S04-5: Return To Attention Coach Cancels Alarm
+
+Steps:
+
+1. Trigger a screen-off reminder from launcher or a non-whitelist app.
+2. Unlock and return to Attention Coach.
+3. Wait longer than one notification interval.
+
+Expected result:
+
+- Visible re-entry reminder is cleared.
+- Pending screen-off alarm is cancelled.
+- No additional re-entry reminder appears after returning to Attention Coach.
+
+### Layer 4 Pass Criteria
+
+Layer 4 is considered passed when:
+
+- Screen off from focus page does not remind.
+- Screen off from whitelist app does not remind.
+- Screen off from launcher reminds and repeats by interval.
+- Screen off from non-whitelist app reminds and repeats by interval.
+- Returning to Attention Coach cancels the visible reminder and pending alarm.
+- Lock-screen / System UI events do not create a new violation by themselves.

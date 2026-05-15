@@ -350,6 +350,8 @@ git commit -m "feat: add screen-on reentry policy"
 
 **Goal:** Screen-off behavior follows the last reliable presence.
 
+**Layer 4 adjustment before implementation:** Layer 2/3 testing showed that screen-off turns the raw foreground source into System UI / lock-screen events. Therefore Layer 4 never derives a new violation from `com.android.systemui`. It persists the last effective `FocusPresence` from screen-on monitoring and lets the alarm receiver make decisions from that state.
+
 **Files:**
 
 - Create: `app/src/main/java/com/example/attentioncoach/platform/ReentryMonitorStateStore.kt`
@@ -364,6 +366,8 @@ git commit -m "feat: add screen-on reentry policy"
 - Screen off from `IN_LAUNCHER`: schedule alarm reminders.
 - Screen off from `IN_OTHER_APP`: schedule alarm reminders.
 - Screen off from `UNKNOWN`: preserve last reliable state and log degraded status. Do not invent a new violation from screen off alone.
+- Returning to screen-on monitoring cancels the pending screen-off alarm.
+- Stopping focus monitoring clears persisted re-entry state and pending screen-off alarms.
 
 - [ ] **Step 1: Add state-store tests where practical**
 

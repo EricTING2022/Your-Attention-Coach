@@ -314,6 +314,100 @@ class FocusMonitorRulesTest {
     }
 
     @Test
+    fun screenOffReentryDoesNotScheduleFromAttentionCoach() {
+        val decision = ScreenOffReentryPolicy.alarmDecision(
+            activeWorkBlock = true,
+            presence = FocusPresence.IN_ATTENTION_COACH,
+            nowMillis = 20_000L,
+            violationStartedAtMillis = null,
+            lastNotificationMillis = null
+        )
+
+        assertFalse(decision.shouldScheduleAlarm)
+        assertTrue(decision.shouldClearAlarm)
+        assertEquals(ReentryReason.SELF, decision.reason)
+    }
+
+    @Test
+    fun screenOffReentryDoesNotScheduleFromWhitelist() {
+        val decision = ScreenOffReentryPolicy.alarmDecision(
+            activeWorkBlock = true,
+            presence = FocusPresence.IN_WHITELIST_APP,
+            nowMillis = 20_000L,
+            violationStartedAtMillis = null,
+            lastNotificationMillis = null
+        )
+
+        assertFalse(decision.shouldScheduleAlarm)
+        assertTrue(decision.shouldClearAlarm)
+        assertEquals(ReentryReason.NEEDED_APP, decision.reason)
+    }
+
+    @Test
+    fun screenOffReentrySchedulesUnsafeAfterRemainingGrace() {
+        val decision = ScreenOffReentryPolicy.alarmDecision(
+            activeWorkBlock = true,
+            presence = FocusPresence.IN_LAUNCHER,
+            nowMillis = 11_000L,
+            violationStartedAtMillis = 10_000L,
+            lastNotificationMillis = null,
+            graceMillis = 2_000L
+        )
+
+        assertTrue(decision.shouldScheduleAlarm)
+        assertEquals(1_000L, decision.delayMillis)
+        assertEquals(ReentryReason.GRACE_PERIOD, decision.reason)
+    }
+
+    @Test
+    fun screenOffReentrySchedulesUnsafeByIntervalAfterReminder() {
+        val decision = ScreenOffReentryPolicy.alarmDecision(
+            activeWorkBlock = true,
+            presence = FocusPresence.IN_OTHER_APP,
+            nowMillis = 20_000L,
+            violationStartedAtMillis = 10_000L,
+            lastNotificationMillis = 15_000L,
+            reentryCooldownMillis = 30_000L
+        )
+
+        assertTrue(decision.shouldScheduleAlarm)
+        assertEquals(25_000L, decision.delayMillis)
+        assertEquals(ReentryReason.COOLDOWN, decision.reason)
+    }
+
+    @Test
+    fun screenOffReentryImmediateAlarmAdvancesNotificationTime() {
+        val decision = ScreenOffReentryPolicy.alarmDecision(
+            activeWorkBlock = true,
+            presence = FocusPresence.IN_OTHER_APP,
+            nowMillis = 20_000L,
+            violationStartedAtMillis = 10_000L,
+            lastNotificationMillis = null,
+            graceMillis = 2_000L
+        )
+
+        assertTrue(decision.shouldScheduleAlarm)
+        assertEquals(0L, decision.delayMillis)
+        assertEquals(20_000L, decision.nextLastNotificationMillis)
+        assertEquals(ReentryReason.NON_NEEDED_APP, decision.reason)
+    }
+
+    @Test
+    fun screenOffReentryDoesNotInventViolationFromUnknown() {
+        val decision = ScreenOffReentryPolicy.alarmDecision(
+            activeWorkBlock = true,
+            presence = FocusPresence.UNKNOWN,
+            nowMillis = 20_000L,
+            violationStartedAtMillis = null,
+            lastNotificationMillis = null
+        )
+
+        assertFalse(decision.shouldScheduleAlarm)
+        assertFalse(decision.shouldClearAlarm)
+        assertEquals(ReentryReason.UNKNOWN, decision.reason)
+    }
+
+    @Test
     fun presenceClassifierMarksStaleObservationUnknown() {
         val presence = ForegroundPresenceClassifier.classify(
             attentionCoachInForeground = false,
