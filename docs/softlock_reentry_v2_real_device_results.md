@@ -143,3 +143,37 @@ Expected effect:
 - Focus page -> screen off should remain effectively `IN_ATTENTION_COACH`.
 - Whitelist app -> screen off should remain effectively `IN_WHITELIST_APP`.
 - Launcher / non-whitelist app -> screen off should keep the previous violating state, because the previous stable state was already `IN_LAUNCHER` or `IN_OTHER_APP`.
+
+## Layer 3 Result
+
+Status: Pending real-device test.
+
+Layer 3 changes the screen-on re-entry decision source:
+
+- Before: `FocusMonitorService` used `UsageStatsManager.latestForegroundPackage()` to decide whether to show a re-entry reminder.
+- Now: `FocusMonitorService` uses the Layer 2 `FocusPresence` result.
+
+Policy:
+
+- `IN_ATTENTION_COACH`: clear visible re-entry reminder and reset violation/cooldown state.
+- `IN_WHITELIST_APP`: clear visible re-entry reminder and reset violation/cooldown state.
+- `IN_LAUNCHER`: start a 3-second grace period, then remind; repeat by notification interval.
+- `IN_OTHER_APP`: start a 3-second grace period, then remind; repeat by notification interval.
+- `UNKNOWN`: do not treat as whitelist; log degraded detection and keep existing state.
+
+Screen-off behavior:
+
+- Layer 3 intentionally skips screen-on re-entry policy while the device is not interactive.
+- Screen-off alarm reminders are reserved for Layer 4.
+
+New diagnostic tag:
+
+```text
+AC_ReentryV2
+```
+
+Expected log shape:
+
+```text
+AC_ReentryV2: presence=<presence> reason=<reason> shouldNotify=<true|false> shouldClear=<true|false> violationStarted=<millis|null> lastNotification=<millis|null>
+```

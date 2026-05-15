@@ -287,6 +287,8 @@ git commit -m "feat: classify foreground presence"
 
 **Goal:** While the screen is on, remind only when presence is launcher or non-whitelist app.
 
+**Layer 2 adjustment before implementation:** real-device testing proved that `FocusPresence` is reliable while the screen is on, and System UI / lock-screen events should not be treated as user app switches. Therefore Layer 3 uses only the Layer 2 effective `FocusPresence` and skips screen-on policy when the device is not interactive. Screen-off reminders remain Layer 4 work.
+
 **Files:**
 
 - Modify: `app/src/main/java/com/example/attentioncoach/platform/FocusMonitorService.kt`
@@ -296,7 +298,7 @@ git commit -m "feat: classify foreground presence"
 **Behavior:**
 
 - On focus start, service starts as foreground service.
-- Service polls or receives latest foreground observation.
+- Service polls latest effective `FocusPresence`.
 - If presence is `IN_ATTENTION_COACH`, clear re-entry violation.
 - If presence is `IN_WHITELIST_APP`, clear visible notification but do not count as final acknowledgement.
 - If presence is `IN_LAUNCHER` or `IN_OTHER_APP`, start a 3-second grace and then notify.

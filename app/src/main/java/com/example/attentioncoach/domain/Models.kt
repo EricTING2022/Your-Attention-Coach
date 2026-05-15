@@ -69,8 +69,18 @@ enum class ReentryReason {
     NOT_LEISURE,
     LEISURE_APP,
     NON_NEEDED_APP,
-    COOLDOWN
+    COOLDOWN,
+    GRACE_PERIOD,
+    UNKNOWN
 }
+
+data class PresenceReentryDecision(
+    val shouldNotify: Boolean,
+    val shouldClearNotification: Boolean,
+    val nextViolationStartedAtMillis: Long?,
+    val nextLastNotificationMillis: Long?,
+    val reason: ReentryReason
+)
 
 data class ActiveWork(
     val taskId: Long,

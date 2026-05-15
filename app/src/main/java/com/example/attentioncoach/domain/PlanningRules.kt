@@ -53,6 +53,7 @@ object FocusMonitorCadence {
     const val POLL_INTERVAL_MILLIS = 5_000L
     const val USAGE_LOOKBACK_MILLIS = 15_000L
     const val FOREGROUND_OBSERVATION_MAX_AGE_MILLIS = 10_000L
+    const val REENTRY_GRACE_MILLIS = 3_000L
     const val REENTRY_COOLDOWN_MILLIS = 30_000L
 }
 
@@ -160,6 +161,92 @@ object SoftLockPolicy {
         return ReentryDecision(
             shouldNotify = true,
             reason = if (foregroundPackage in leisurePackages) ReentryReason.LEISURE_APP else ReentryReason.NON_NEEDED_APP
+        )
+    }
+}
+
+object PresenceReentryPolicy {
+    fun screenOnDecision(
+        activeWorkBlock: Boolean,
+        presence: FocusPresence,
+        nowMillis: Long,
+        violationStartedAtMillis: Long?,
+        lastNotificationMillis: Long?,
+        graceMillis: Long = FocusMonitorCadence.REENTRY_GRACE_MILLIS,
+        reentryCooldownMillis: Long = FocusMonitorCadence.REENTRY_COOLDOWN_MILLIS
+    ): PresenceReentryDecision {
+        if (!activeWorkBlock) {
+            return clearDecision(ReentryReason.INACTIVE)
+        }
+        return when (presence) {
+            FocusPresence.IN_ATTENTION_COACH -> clearDecision(ReentryReason.SELF)
+            FocusPresence.IN_WHITELIST_APP -> clearDecision(ReentryReason.NEEDED_APP)
+            FocusPresence.UNKNOWN -> PresenceReentryDecision(
+                shouldNotify = false,
+                shouldClearNotification = false,
+                nextViolationStartedAtMillis = violationStartedAtMillis,
+                nextLastNotificationMillis = lastNotificationMillis,
+                reason = ReentryReason.UNKNOWN
+            )
+            FocusPresence.IN_LAUNCHER,
+            FocusPresence.IN_OTHER_APP -> violatingDecision(
+                presence = presence,
+                nowMillis = nowMillis,
+                violationStartedAtMillis = violationStartedAtMillis,
+                lastNotificationMillis = lastNotificationMillis,
+                graceMillis = graceMillis,
+                reentryCooldownMillis = reentryCooldownMillis
+            )
+        }
+    }
+
+    private fun clearDecision(reason: ReentryReason): PresenceReentryDecision {
+        return PresenceReentryDecision(
+            shouldNotify = false,
+            shouldClearNotification = true,
+            nextViolationStartedAtMillis = null,
+            nextLastNotificationMillis = null,
+            reason = reason
+        )
+    }
+
+    private fun violatingDecision(
+        presence: FocusPresence,
+        nowMillis: Long,
+        violationStartedAtMillis: Long?,
+        lastNotificationMillis: Long?,
+        graceMillis: Long,
+        reentryCooldownMillis: Long
+    ): PresenceReentryDecision {
+        val startedAt = violationStartedAtMillis ?: nowMillis
+        if (nowMillis - startedAt < graceMillis) {
+            return PresenceReentryDecision(
+                shouldNotify = false,
+                shouldClearNotification = false,
+                nextViolationStartedAtMillis = startedAt,
+                nextLastNotificationMillis = lastNotificationMillis,
+                reason = ReentryReason.GRACE_PERIOD
+            )
+        }
+        if (lastNotificationMillis != null && nowMillis - lastNotificationMillis < reentryCooldownMillis) {
+            return PresenceReentryDecision(
+                shouldNotify = false,
+                shouldClearNotification = false,
+                nextViolationStartedAtMillis = startedAt,
+                nextLastNotificationMillis = lastNotificationMillis,
+                reason = ReentryReason.COOLDOWN
+            )
+        }
+        return PresenceReentryDecision(
+            shouldNotify = true,
+            shouldClearNotification = false,
+            nextViolationStartedAtMillis = startedAt,
+            nextLastNotificationMillis = nowMillis,
+            reason = if (presence == FocusPresence.IN_LAUNCHER) {
+                ReentryReason.NON_NEEDED_APP
+            } else {
+                ReentryReason.NON_NEEDED_APP
+            }
         )
     }
 }

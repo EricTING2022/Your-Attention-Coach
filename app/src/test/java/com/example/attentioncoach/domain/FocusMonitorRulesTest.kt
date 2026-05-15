@@ -1,5 +1,6 @@
 package com.example.attentioncoach.domain
 
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -213,6 +214,103 @@ class FocusMonitorRulesTest {
         )
 
         assertEquals(FocusPresence.UNKNOWN, presence)
+    }
+
+    @Test
+    fun screenOnReentryWaitsDuringGracePeriod() {
+        val decision = PresenceReentryPolicy.screenOnDecision(
+            activeWorkBlock = true,
+            presence = FocusPresence.IN_LAUNCHER,
+            nowMillis = 12_000L,
+            violationStartedAtMillis = 10_000L,
+            lastNotificationMillis = null
+        )
+
+        assertFalse(decision.shouldNotify)
+        assertFalse(decision.shouldClearNotification)
+        assertEquals(10_000L, decision.nextViolationStartedAtMillis)
+        assertEquals(ReentryReason.GRACE_PERIOD, decision.reason)
+    }
+
+    @Test
+    fun screenOnReentryNotifiesAfterGracePeriod() {
+        val decision = PresenceReentryPolicy.screenOnDecision(
+            activeWorkBlock = true,
+            presence = FocusPresence.IN_OTHER_APP,
+            nowMillis = 14_000L,
+            violationStartedAtMillis = 10_000L,
+            lastNotificationMillis = null
+        )
+
+        assertTrue(decision.shouldNotify)
+        assertEquals(10_000L, decision.nextViolationStartedAtMillis)
+        assertEquals(14_000L, decision.nextLastNotificationMillis)
+        assertEquals(ReentryReason.NON_NEEDED_APP, decision.reason)
+    }
+
+    @Test
+    fun screenOnReentryUsesCooldownForRepeatedReminders() {
+        val decision = PresenceReentryPolicy.screenOnDecision(
+            activeWorkBlock = true,
+            presence = FocusPresence.IN_LAUNCHER,
+            nowMillis = 20_000L,
+            violationStartedAtMillis = 10_000L,
+            lastNotificationMillis = 15_000L,
+            reentryCooldownMillis = 30_000L
+        )
+
+        assertFalse(decision.shouldNotify)
+        assertEquals(15_000L, decision.nextLastNotificationMillis)
+        assertEquals(ReentryReason.COOLDOWN, decision.reason)
+    }
+
+    @Test
+    fun screenOnReentryClearsWhenBackInAttentionCoach() {
+        val decision = PresenceReentryPolicy.screenOnDecision(
+            activeWorkBlock = true,
+            presence = FocusPresence.IN_ATTENTION_COACH,
+            nowMillis = 20_000L,
+            violationStartedAtMillis = 10_000L,
+            lastNotificationMillis = 15_000L
+        )
+
+        assertFalse(decision.shouldNotify)
+        assertTrue(decision.shouldClearNotification)
+        assertEquals(null, decision.nextViolationStartedAtMillis)
+        assertEquals(null, decision.nextLastNotificationMillis)
+        assertEquals(ReentryReason.SELF, decision.reason)
+    }
+
+    @Test
+    fun screenOnReentryClearsVisibleReminderInWhitelistApp() {
+        val decision = PresenceReentryPolicy.screenOnDecision(
+            activeWorkBlock = true,
+            presence = FocusPresence.IN_WHITELIST_APP,
+            nowMillis = 20_000L,
+            violationStartedAtMillis = 10_000L,
+            lastNotificationMillis = 15_000L
+        )
+
+        assertFalse(decision.shouldNotify)
+        assertTrue(decision.shouldClearNotification)
+        assertEquals(null, decision.nextViolationStartedAtMillis)
+        assertEquals(null, decision.nextLastNotificationMillis)
+        assertEquals(ReentryReason.NEEDED_APP, decision.reason)
+    }
+
+    @Test
+    fun screenOnReentryDoesNotTreatUnknownAsWhitelist() {
+        val decision = PresenceReentryPolicy.screenOnDecision(
+            activeWorkBlock = true,
+            presence = FocusPresence.UNKNOWN,
+            nowMillis = 20_000L,
+            violationStartedAtMillis = null,
+            lastNotificationMillis = null
+        )
+
+        assertFalse(decision.shouldNotify)
+        assertFalse(decision.shouldClearNotification)
+        assertEquals(ReentryReason.UNKNOWN, decision.reason)
     }
 
     @Test

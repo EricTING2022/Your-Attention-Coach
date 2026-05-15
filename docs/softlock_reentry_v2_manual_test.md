@@ -334,3 +334,122 @@ Layer 2 is considered passed when:
 - Non-whitelist app is classified as `IN_OTHER_APP`.
 - `UNKNOWN` is only used when the raw observation is missing or stale.
 - System UI / lock-screen does not overwrite the last stable foreground presence.
+
+## Layer 3 Manual Test: Screen-on Re-entry Policy
+
+Layer 3 uses `FocusPresence` as the only input for screen-on re-entry reminders. It no longer uses `UsageStatsManager` to decide whether to remind.
+
+Screen-off repeat reminders are intentionally not implemented in this layer. When the screen is off, the service logs and skips screen-on policy; Layer 4 will add AlarmManager-based screen-off reminders.
+
+### Setup
+
+1. Install the Layer 3 debug APK.
+2. Enable `Foreground detection` in Android Accessibility settings.
+3. Add Chrome, or another test app, to `Apps whitelist`.
+4. Set `Notification interval` to a short value such as `30s`.
+5. Start a focus timer.
+
+### Log Capture
+
+Use:
+
+```powershell
+adb logcat -c
+adb logcat -v time -s AC_ForegroundV2 AC_PresenceV2 AC_ReentryV2
+```
+
+### S03-1: Focus Page Does Not Remind
+
+Steps:
+
+1. Stay on the focus timer page for at least 10 seconds.
+
+Expected result:
+
+- No re-entry banner appears.
+- `AC_ReentryV2` shows `presence=IN_ATTENTION_COACH` and `reason=SELF`.
+
+### S03-2: Launcher Reminds After Grace
+
+Steps:
+
+1. From focus timer, press Home.
+2. Stay on launcher.
+
+Expected result:
+
+- No immediate reminder during the 3-second grace period.
+- A re-entry reminder appears after grace.
+- `AC_ReentryV2` shows `presence=IN_LAUNCHER`.
+
+### S03-3: Whitelist App Suppresses Reminder
+
+Steps:
+
+1. From focus timer, open Chrome or another Apps whitelist app.
+2. Stay in that app.
+
+Expected result:
+
+- No re-entry reminder appears.
+- If a previous reminder was visible, it is cleared.
+- `AC_ReentryV2` shows `presence=IN_WHITELIST_APP` and `reason=NEEDED_APP`.
+
+### S03-4: Launcher To Whitelist Clears Reminder
+
+Steps:
+
+1. From focus timer, go to launcher and wait for a re-entry reminder.
+2. Open the whitelist app.
+
+Expected result:
+
+- The visible re-entry reminder is cleared.
+- No repeated reminder appears while staying in the whitelist app.
+
+### S03-5: Whitelist To Launcher Reminds Again
+
+Steps:
+
+1. From the whitelist app, press Home.
+2. Stay on launcher.
+
+Expected result:
+
+- A new 3-second grace period starts.
+- A re-entry reminder appears after grace.
+
+### S03-6: Non-whitelist App Reminds
+
+Steps:
+
+1. Open an app that is not in Apps whitelist.
+
+Expected result:
+
+- A re-entry reminder appears after grace.
+- `AC_ReentryV2` shows `presence=IN_OTHER_APP`.
+
+### S03-7: Returning To Attention Coach Clears Reminder
+
+Steps:
+
+1. Trigger a re-entry reminder from launcher or a non-whitelist app.
+2. Return to Attention Coach.
+
+Expected result:
+
+- The visible re-entry reminder is cleared.
+- `AC_ReentryV2` shows `presence=IN_ATTENTION_COACH` and `reason=SELF`.
+
+### Layer 3 Pass Criteria
+
+Layer 3 is considered passed when:
+
+- Focus page never triggers a re-entry reminder.
+- Whitelist app never triggers a re-entry reminder.
+- Launcher triggers a reminder after the 3-second grace period.
+- Non-whitelist app triggers a reminder after the 3-second grace period.
+- Moving from launcher/non-whitelist app to whitelist app clears and suppresses reminders.
+- Moving from whitelist app to launcher/non-whitelist app starts a new grace period and reminds again.
+- Returning to Attention Coach clears the reminder.

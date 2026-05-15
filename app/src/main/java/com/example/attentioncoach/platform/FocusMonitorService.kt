@@ -7,22 +7,23 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.util.Log
 import com.example.attentioncoach.domain.FocusMonitorCadence
 import com.example.attentioncoach.domain.ForegroundPresenceClassifier
 import com.example.attentioncoach.domain.ForegroundPresenceMemory
 import com.example.attentioncoach.domain.FocusPresence
 import com.example.attentioncoach.domain.PlannedTask
-import com.example.attentioncoach.domain.SoftLockPolicy
+import com.example.attentioncoach.domain.PresenceReentryPolicy
 
 class FocusMonitorService : Service() {
     private val handler = Handler(Looper.getMainLooper())
-    private lateinit var usageStatsBoundary: UsageStatsBoundary
     private lateinit var foregroundObservationStore: ForegroundObservationStore
     private lateinit var launcherPackagesProvider: LauncherPackagesProvider
     private lateinit var notifier: ReentryNotifier
     private var session: MonitorSession? = null
     private var lastNotificationMillis: Long? = null
+    private var violationStartedAtMillis: Long? = null
     private var lastStablePresence: FocusPresence? = null
 
     private val monitorTick = object : Runnable {
@@ -34,7 +35,6 @@ class FocusMonitorService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        usageStatsBoundary = UsageStatsBoundary(this)
         foregroundObservationStore = ForegroundObservationStore(this)
         launcherPackagesProvider = LauncherPackagesProvider(this)
         notifier = ReentryNotifier(this)
@@ -76,6 +76,7 @@ class FocusMonitorService : Service() {
                 )
         )
         lastNotificationMillis = null
+        violationStartedAtMillis = null
         lastStablePresence = null
         startForeground(ACTIVE_WORK_NOTIFICATION_ID, notifier.buildActiveWorkNotification(taskId, taskTitle))
         handler.removeCallbacks(monitorTick)
@@ -110,27 +111,36 @@ class FocusMonitorService : Service() {
     private fun scanForegroundApp() {
         val activeSession = session ?: return
         val nowMillis = System.currentTimeMillis()
-        logPresence(activeSession, nowMillis)
-        val foregroundPackage = usageStatsBoundary.latestForegroundPackage(
-            sinceMillis = nowMillis - FocusMonitorCadence.USAGE_LOOKBACK_MILLIS,
-            nowMillis = nowMillis
-        )
-        val decision = SoftLockPolicy.reentryDecision(
+        val presence = resolvePresence(activeSession, nowMillis)
+        if (!isDeviceInteractive()) {
+            Log.d(PRESENCE_TAG, "screenOffSkip presence=$presence")
+            return
+        }
+        val decision = PresenceReentryPolicy.screenOnDecision(
             activeWorkBlock = true,
-            foregroundPackage = foregroundPackage,
-            neededPackages = activeSession.neededPackages,
-            leisurePackages = activeSession.leisurePackages,
+            presence = presence,
             nowMillis = nowMillis,
+            violationStartedAtMillis = violationStartedAtMillis,
             lastNotificationMillis = lastNotificationMillis,
             reentryCooldownMillis = activeSession.reentryCooldownMillis
         )
+        violationStartedAtMillis = decision.nextViolationStartedAtMillis
+        lastNotificationMillis = decision.nextLastNotificationMillis
+        Log.d(
+            REENTRY_TAG,
+            "presence=$presence reason=${decision.reason} shouldNotify=${decision.shouldNotify} " +
+                "shouldClear=${decision.shouldClearNotification} violationStarted=$violationStartedAtMillis " +
+                "lastNotification=$lastNotificationMillis"
+        )
+        if (decision.shouldClearNotification) {
+            notifier.clearReentryBanner()
+        }
         if (decision.shouldNotify) {
-            lastNotificationMillis = nowMillis
             notifier.showReentryBanner(activeSession.taskId, activeSession.taskTitle)
         }
     }
 
-    private fun logPresence(activeSession: MonitorSession, nowMillis: Long) {
+    private fun resolvePresence(activeSession: MonitorSession, nowMillis: Long): FocusPresence {
         val observation = foregroundObservationStore.read()
         val launcherPackages = launcherPackagesProvider.launcherPackages()
         val classifiedPresence = ForegroundPresenceClassifier.classify(
@@ -155,6 +165,11 @@ class FocusMonitorService : Service() {
                 "ageMillis=$ageMillis classified=$classifiedPresence presence=$presence " +
                 "lastStable=$lastStablePresence launcherPackages=$launcherPackages"
         )
+        return presence
+    }
+
+    private fun isDeviceInteractive(): Boolean {
+        return getSystemService(PowerManager::class.java)?.isInteractive ?: true
     }
 
     companion object {
@@ -169,6 +184,7 @@ class FocusMonitorService : Service() {
         private const val INVALID_TASK_ID = -1L
         private const val ACTIVE_WORK_NOTIFICATION_ID = 4520
         private const val PRESENCE_TAG = "AC_PresenceV2"
+        private const val REENTRY_TAG = "AC_ReentryV2"
 
         private val DEFAULT_LEISURE_PACKAGES = arrayOf(
             "com.google.android.youtube",
