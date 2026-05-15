@@ -101,7 +101,7 @@ The foreground selection rule was updated to prefer `rootPackage`, then fall bac
 
 ## Layer 2 Result
 
-Status: Pending real-device test.
+Status: Partially passed, with screen-off refinement added.
 
 Layer 2 adds a pure presence classifier and monitor diagnostic log:
 
@@ -118,3 +118,28 @@ Expected presence mapping:
 - stale or missing observation -> `UNKNOWN`.
 
 Layer 2 intentionally does not change re-entry notification behavior yet. It only proves the classification layer that Layer 3 will use.
+
+### Screen-off finding
+
+User-provided screen-off logs showed this sequence:
+
+- Before screen-off, the last reliable raw package was `com.example.attentioncoach`.
+- After the screen had been off long enough, that observation became stale and classified as `UNKNOWN`.
+- Accessibility then emitted lock-screen / System UI events:
+  - `rootPackage=com.android.systemui`
+  - `chosenPackage=com.android.systemui`
+- The classifier previously treated `com.android.systemui` as `IN_OTHER_APP`.
+
+This is not the intended product behavior. System UI / lock-screen is not a user-selected app and should not mean the user has left focus into a non-whitelist app.
+
+Refinement added:
+
+- `com.android.systemui` is classified as `UNKNOWN`, not `IN_OTHER_APP`.
+- The monitor keeps a `lastStablePresence`.
+- If the latest classified presence is `UNKNOWN`, the effective presence remains the previous stable value.
+
+Expected effect:
+
+- Focus page -> screen off should remain effectively `IN_ATTENTION_COACH`.
+- Whitelist app -> screen off should remain effectively `IN_WHITELIST_APP`.
+- Launcher / non-whitelist app -> screen off should keep the previous violating state, because the previous stable state was already `IN_LAUNCHER` or `IN_OTHER_APP`.

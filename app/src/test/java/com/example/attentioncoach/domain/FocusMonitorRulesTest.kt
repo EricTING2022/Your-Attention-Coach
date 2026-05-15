@@ -179,6 +179,43 @@ class FocusMonitorRulesTest {
     }
 
     @Test
+    fun presenceClassifierTreatsSystemUiAsUnknown() {
+        val presence = classifyFresh("com.android.systemui")
+
+        assertEquals(FocusPresence.UNKNOWN, presence)
+    }
+
+    @Test
+    fun presenceMemoryKeepsLastStablePresenceWhenObservationIsUnknown() {
+        val presence = ForegroundPresenceMemory.resolve(
+            classifiedPresence = FocusPresence.UNKNOWN,
+            lastStablePresence = FocusPresence.IN_ATTENTION_COACH
+        )
+
+        assertEquals(FocusPresence.IN_ATTENTION_COACH, presence)
+    }
+
+    @Test
+    fun presenceMemoryUpdatesWhenObservationIsStable() {
+        val presence = ForegroundPresenceMemory.resolve(
+            classifiedPresence = FocusPresence.IN_LAUNCHER,
+            lastStablePresence = FocusPresence.IN_ATTENTION_COACH
+        )
+
+        assertEquals(FocusPresence.IN_LAUNCHER, presence)
+    }
+
+    @Test
+    fun presenceMemoryKeepsUnknownWhenNoStablePresenceExists() {
+        val presence = ForegroundPresenceMemory.resolve(
+            classifiedPresence = FocusPresence.UNKNOWN,
+            lastStablePresence = null
+        )
+
+        assertEquals(FocusPresence.UNKNOWN, presence)
+    }
+
+    @Test
     fun presenceClassifierMarksStaleObservationUnknown() {
         val presence = ForegroundPresenceClassifier.classify(
             attentionCoachInForeground = false,

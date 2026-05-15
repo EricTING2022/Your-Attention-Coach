@@ -304,7 +304,25 @@ Expected log evidence:
 
 ### S02-5: Stale / Missing Observation
 
-This is mainly covered by unit tests. On device, if Accessibility is disabled or stops reporting fresh data, `AC_PresenceV2` may show `presence=UNKNOWN`.
+This is mainly covered by unit tests. On device, if Accessibility is disabled or stops reporting fresh data, `AC_PresenceV2` may show `classified=UNKNOWN`.
+
+### S02-6: Screen-off Keeps Last Stable Presence
+
+Steps:
+
+1. Start from the focus timer page.
+2. Turn the screen off for at least 15 seconds.
+3. Turn the screen on and inspect `AC_PresenceV2`.
+4. Repeat from a whitelist app, launcher, and non-whitelist app.
+
+Expected log evidence:
+
+- If the raw package becomes `com.android.systemui`, `classified=UNKNOWN`.
+- The effective `presence` remains the previous stable state.
+- Focus page before screen-off remains effectively `presence=IN_ATTENTION_COACH`.
+- Whitelist app before screen-off remains effectively `presence=IN_WHITELIST_APP`.
+- Launcher before screen-off remains effectively `presence=IN_LAUNCHER`.
+- Non-whitelist app before screen-off remains effectively `presence=IN_OTHER_APP`.
 
 ### Layer 2 Pass Criteria
 
@@ -315,3 +333,4 @@ Layer 2 is considered passed when:
 - Launcher is classified as `IN_LAUNCHER`.
 - Non-whitelist app is classified as `IN_OTHER_APP`.
 - `UNKNOWN` is only used when the raw observation is missing or stale.
+- System UI / lock-screen does not overwrite the last stable foreground presence.

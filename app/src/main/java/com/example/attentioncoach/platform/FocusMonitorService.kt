@@ -10,6 +10,8 @@ import android.os.Looper
 import android.util.Log
 import com.example.attentioncoach.domain.FocusMonitorCadence
 import com.example.attentioncoach.domain.ForegroundPresenceClassifier
+import com.example.attentioncoach.domain.ForegroundPresenceMemory
+import com.example.attentioncoach.domain.FocusPresence
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.SoftLockPolicy
 
@@ -21,6 +23,7 @@ class FocusMonitorService : Service() {
     private lateinit var notifier: ReentryNotifier
     private var session: MonitorSession? = null
     private var lastNotificationMillis: Long? = null
+    private var lastStablePresence: FocusPresence? = null
 
     private val monitorTick = object : Runnable {
         override fun run() {
@@ -73,6 +76,7 @@ class FocusMonitorService : Service() {
                 )
         )
         lastNotificationMillis = null
+        lastStablePresence = null
         startForeground(ACTIVE_WORK_NOTIFICATION_ID, notifier.buildActiveWorkNotification(taskId, taskTitle))
         handler.removeCallbacks(monitorTick)
         handler.post(monitorTick)
@@ -129,7 +133,7 @@ class FocusMonitorService : Service() {
     private fun logPresence(activeSession: MonitorSession, nowMillis: Long) {
         val observation = foregroundObservationStore.read()
         val launcherPackages = launcherPackagesProvider.launcherPackages()
-        val presence = ForegroundPresenceClassifier.classify(
+        val classifiedPresence = ForegroundPresenceClassifier.classify(
             attentionCoachInForeground = false,
             observation = observation,
             nowMillis = nowMillis,
@@ -137,11 +141,19 @@ class FocusMonitorService : Service() {
             whitelistPackages = activeSession.neededPackages,
             launcherPackages = launcherPackages
         )
+        val presence = ForegroundPresenceMemory.resolve(
+            classifiedPresence = classifiedPresence,
+            lastStablePresence = lastStablePresence
+        )
+        if (classifiedPresence != FocusPresence.UNKNOWN) {
+            lastStablePresence = classifiedPresence
+        }
         val ageMillis = observation?.let { nowMillis - it.observedAtMillis }
         Log.d(
             PRESENCE_TAG,
             "rawPackage=${observation?.packageName} source=${observation?.source} " +
-                "ageMillis=$ageMillis presence=$presence launcherPackages=$launcherPackages"
+                "ageMillis=$ageMillis classified=$classifiedPresence presence=$presence " +
+                "lastStable=$lastStablePresence launcherPackages=$launcherPackages"
         )
     }
 

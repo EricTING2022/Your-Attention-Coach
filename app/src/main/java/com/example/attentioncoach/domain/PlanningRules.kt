@@ -94,6 +94,8 @@ object ForegroundObservationRules {
 }
 
 object ForegroundPresenceClassifier {
+    private const val SYSTEM_UI_PACKAGE = "com.android.systemui"
+
     fun classify(
         attentionCoachInForeground: Boolean,
         observation: ForegroundObservation?,
@@ -112,9 +114,23 @@ object ForegroundPresenceClassifier {
 
         return when (foregroundPackage) {
             appPackage -> FocusPresence.IN_ATTENTION_COACH
+            SYSTEM_UI_PACKAGE -> FocusPresence.UNKNOWN
             in whitelistPackages -> FocusPresence.IN_WHITELIST_APP
             in launcherPackages -> FocusPresence.IN_LAUNCHER
             else -> FocusPresence.IN_OTHER_APP
+        }
+    }
+}
+
+object ForegroundPresenceMemory {
+    fun resolve(
+        classifiedPresence: FocusPresence,
+        lastStablePresence: FocusPresence?
+    ): FocusPresence {
+        return if (classifiedPresence == FocusPresence.UNKNOWN) {
+            lastStablePresence ?: FocusPresence.UNKNOWN
+        } else {
+            classifiedPresence
         }
     }
 }
