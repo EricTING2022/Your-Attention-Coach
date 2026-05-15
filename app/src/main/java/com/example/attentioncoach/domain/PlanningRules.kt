@@ -52,6 +52,7 @@ object DateIndicatorRules {
 object FocusMonitorCadence {
     const val POLL_INTERVAL_MILLIS = 5_000L
     const val USAGE_LOOKBACK_MILLIS = 15_000L
+    const val FOREGROUND_OBSERVATION_MAX_AGE_MILLIS = 10_000L
     const val REENTRY_COOLDOWN_MILLIS = 30_000L
 }
 
@@ -89,6 +90,32 @@ object ForegroundObservationRules {
     ): Boolean {
         return lastPackageName != newPackageName ||
             nowMillis - lastRecordedAtMillis >= duplicateThrottleMillis
+    }
+}
+
+object ForegroundPresenceClassifier {
+    fun classify(
+        attentionCoachInForeground: Boolean,
+        observation: ForegroundObservation?,
+        nowMillis: Long,
+        appPackage: String,
+        whitelistPackages: Set<String>,
+        launcherPackages: Set<String>,
+        maxAgeMillis: Long = FocusMonitorCadence.FOREGROUND_OBSERVATION_MAX_AGE_MILLIS
+    ): FocusPresence {
+        if (attentionCoachInForeground) return FocusPresence.IN_ATTENTION_COACH
+        val foregroundPackage = ForegroundObservationRules.freshOrNull(
+            observation = observation,
+            nowMillis = nowMillis,
+            maxAgeMillis = maxAgeMillis
+        )?.packageName ?: return FocusPresence.UNKNOWN
+
+        return when (foregroundPackage) {
+            appPackage -> FocusPresence.IN_ATTENTION_COACH
+            in whitelistPackages -> FocusPresence.IN_WHITELIST_APP
+            in launcherPackages -> FocusPresence.IN_LAUNCHER
+            else -> FocusPresence.IN_OTHER_APP
+        }
     }
 }
 

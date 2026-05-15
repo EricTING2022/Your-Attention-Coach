@@ -98,3 +98,23 @@ Updated understanding:
 - `eventPackage` should only be used when `rootPackage` is missing.
 
 The foreground selection rule was updated to prefer `rootPackage`, then fall back to `eventPackage`, then to `windowPackages`.
+
+## Layer 2 Result
+
+Status: Pending real-device test.
+
+Layer 2 adds a pure presence classifier and monitor diagnostic log:
+
+```text
+AC_PresenceV2: rawPackage=<package> source=<source> ageMillis=<age> presence=<presence> launcherPackages=<packages>
+```
+
+Expected presence mapping:
+
+- `com.example.attentioncoach` -> `IN_ATTENTION_COACH`;
+- any Apps whitelist package, such as Chrome -> `IN_WHITELIST_APP`;
+- Android launcher package -> `IN_LAUNCHER`;
+- other non-whitelist packages -> `IN_OTHER_APP`;
+- stale or missing observation -> `UNKNOWN`.
+
+Layer 2 intentionally does not change re-entry notification behavior yet. It only proves the classification layer that Layer 3 will use.

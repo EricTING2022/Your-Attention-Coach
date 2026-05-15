@@ -237,3 +237,81 @@ Layer 1 is considered passed only when real-device logs prove all of these:
 - Duplicate logs for the same package are throttled to roughly 5 seconds, but switching to a different package is still recorded immediately.
 
 If `chosenPackage` stays `null`, or if whitelist / launcher / non-whitelist all look the same, stop before Layer 2. The Accessibility observer must be fixed before any re-entry policy is implemented.
+
+## Layer 2 Manual Test: Presence Classifier
+
+Layer 2 converts raw foreground observations into product states. It still does not change the re-entry notification policy.
+
+### Setup
+
+1. Install the Layer 2 debug APK.
+2. Enable `Foreground detection` in Android Accessibility settings.
+3. Add Chrome, or another test app, to `Apps whitelist`.
+4. Start a focus timer so `FocusMonitorService` is running.
+
+### Log Capture
+
+Use both tags:
+
+```powershell
+adb logcat -c
+adb logcat -v time -s AC_ForegroundV2 AC_PresenceV2
+```
+
+### S02-1: Attention Coach Presence
+
+Steps:
+
+1. Stay on the focus timer page.
+
+Expected log evidence:
+
+- `AC_ForegroundV2` shows `chosenPackage=com.example.attentioncoach`.
+- `AC_PresenceV2` shows `presence=IN_ATTENTION_COACH`.
+
+### S02-2: Whitelist App Presence
+
+Steps:
+
+1. Open Chrome or another app in Apps whitelist.
+
+Expected log evidence:
+
+- `rawPackage` is the whitelist package, for example `com.android.chrome`.
+- `presence=IN_WHITELIST_APP`.
+
+### S02-3: Launcher Presence
+
+Steps:
+
+1. Press Home and stay on launcher.
+
+Expected log evidence:
+
+- `rawPackage` is the launcher package.
+- `presence=IN_LAUNCHER`.
+
+### S02-4: Non-whitelist App Presence
+
+Steps:
+
+1. Open an app that is not in Apps whitelist.
+
+Expected log evidence:
+
+- `rawPackage` is that app package.
+- `presence=IN_OTHER_APP`.
+
+### S02-5: Stale / Missing Observation
+
+This is mainly covered by unit tests. On device, if Accessibility is disabled or stops reporting fresh data, `AC_PresenceV2` may show `presence=UNKNOWN`.
+
+### Layer 2 Pass Criteria
+
+Layer 2 is considered passed when:
+
+- Attention Coach is classified as `IN_ATTENTION_COACH`.
+- Apps whitelist app is classified as `IN_WHITELIST_APP`.
+- Launcher is classified as `IN_LAUNCHER`.
+- Non-whitelist app is classified as `IN_OTHER_APP`.
+- `UNKNOWN` is only used when the raw observation is missing or stale.

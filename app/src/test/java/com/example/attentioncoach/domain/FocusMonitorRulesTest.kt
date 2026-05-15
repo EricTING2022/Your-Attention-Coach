@@ -131,4 +131,97 @@ class FocusMonitorRulesTest {
             )
         )
     }
+
+    @Test
+    fun presenceClassifierLetsLifecycleForegroundWin() {
+        val presence = ForegroundPresenceClassifier.classify(
+            attentionCoachInForeground = true,
+            observation = ForegroundObservation(
+                packageName = "com.android.chrome",
+                source = ForegroundSource.ACCESSIBILITY,
+                observedAtMillis = 10_000L
+            ),
+            nowMillis = 11_000L,
+            appPackage = "com.example.attentioncoach",
+            whitelistPackages = setOf("com.android.chrome"),
+            launcherPackages = setOf("com.sec.android.app.launcher")
+        )
+
+        assertEquals(FocusPresence.IN_ATTENTION_COACH, presence)
+    }
+
+    @Test
+    fun presenceClassifierRecognizesAppPackage() {
+        val presence = classifyFresh("com.example.attentioncoach")
+
+        assertEquals(FocusPresence.IN_ATTENTION_COACH, presence)
+    }
+
+    @Test
+    fun presenceClassifierRecognizesWhitelistPackage() {
+        val presence = classifyFresh("com.android.chrome")
+
+        assertEquals(FocusPresence.IN_WHITELIST_APP, presence)
+    }
+
+    @Test
+    fun presenceClassifierRecognizesLauncherPackage() {
+        val presence = classifyFresh("com.sec.android.app.launcher")
+
+        assertEquals(FocusPresence.IN_LAUNCHER, presence)
+    }
+
+    @Test
+    fun presenceClassifierRecognizesOtherPackage() {
+        val presence = classifyFresh("com.openrice.android")
+
+        assertEquals(FocusPresence.IN_OTHER_APP, presence)
+    }
+
+    @Test
+    fun presenceClassifierMarksStaleObservationUnknown() {
+        val presence = ForegroundPresenceClassifier.classify(
+            attentionCoachInForeground = false,
+            observation = ForegroundObservation(
+                packageName = "com.android.chrome",
+                source = ForegroundSource.ACCESSIBILITY,
+                observedAtMillis = 1_000L
+            ),
+            nowMillis = 20_000L,
+            appPackage = "com.example.attentioncoach",
+            whitelistPackages = setOf("com.android.chrome"),
+            launcherPackages = setOf("com.sec.android.app.launcher")
+        )
+
+        assertEquals(FocusPresence.UNKNOWN, presence)
+    }
+
+    @Test
+    fun presenceClassifierMarksMissingObservationUnknown() {
+        val presence = ForegroundPresenceClassifier.classify(
+            attentionCoachInForeground = false,
+            observation = null,
+            nowMillis = 20_000L,
+            appPackage = "com.example.attentioncoach",
+            whitelistPackages = setOf("com.android.chrome"),
+            launcherPackages = setOf("com.sec.android.app.launcher")
+        )
+
+        assertEquals(FocusPresence.UNKNOWN, presence)
+    }
+
+    private fun classifyFresh(packageName: String): FocusPresence {
+        return ForegroundPresenceClassifier.classify(
+            attentionCoachInForeground = false,
+            observation = ForegroundObservation(
+                packageName = packageName,
+                source = ForegroundSource.ACCESSIBILITY,
+                observedAtMillis = 10_000L
+            ),
+            nowMillis = 11_000L,
+            appPackage = "com.example.attentioncoach",
+            whitelistPackages = setOf("com.android.chrome"),
+            launcherPackages = setOf("com.sec.android.app.launcher")
+        )
+    }
 }

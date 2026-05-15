@@ -7,13 +7,17 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.util.Log
 import com.example.attentioncoach.domain.FocusMonitorCadence
+import com.example.attentioncoach.domain.ForegroundPresenceClassifier
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.SoftLockPolicy
 
 class FocusMonitorService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var usageStatsBoundary: UsageStatsBoundary
+    private lateinit var foregroundObservationStore: ForegroundObservationStore
+    private lateinit var launcherPackagesProvider: LauncherPackagesProvider
     private lateinit var notifier: ReentryNotifier
     private var session: MonitorSession? = null
     private var lastNotificationMillis: Long? = null
@@ -28,6 +32,8 @@ class FocusMonitorService : Service() {
     override fun onCreate() {
         super.onCreate()
         usageStatsBoundary = UsageStatsBoundary(this)
+        foregroundObservationStore = ForegroundObservationStore(this)
+        launcherPackagesProvider = LauncherPackagesProvider(this)
         notifier = ReentryNotifier(this)
         notifier.ensureChannels()
     }
@@ -100,6 +106,7 @@ class FocusMonitorService : Service() {
     private fun scanForegroundApp() {
         val activeSession = session ?: return
         val nowMillis = System.currentTimeMillis()
+        logPresence(activeSession, nowMillis)
         val foregroundPackage = usageStatsBoundary.latestForegroundPackage(
             sinceMillis = nowMillis - FocusMonitorCadence.USAGE_LOOKBACK_MILLIS,
             nowMillis = nowMillis
@@ -119,6 +126,25 @@ class FocusMonitorService : Service() {
         }
     }
 
+    private fun logPresence(activeSession: MonitorSession, nowMillis: Long) {
+        val observation = foregroundObservationStore.read()
+        val launcherPackages = launcherPackagesProvider.launcherPackages()
+        val presence = ForegroundPresenceClassifier.classify(
+            attentionCoachInForeground = false,
+            observation = observation,
+            nowMillis = nowMillis,
+            appPackage = packageName,
+            whitelistPackages = activeSession.neededPackages,
+            launcherPackages = launcherPackages
+        )
+        val ageMillis = observation?.let { nowMillis - it.observedAtMillis }
+        Log.d(
+            PRESENCE_TAG,
+            "rawPackage=${observation?.packageName} source=${observation?.source} " +
+                "ageMillis=$ageMillis presence=$presence launcherPackages=$launcherPackages"
+        )
+    }
+
     companion object {
         private const val ACTION_START = "com.example.attentioncoach.monitor.START"
         private const val ACTION_STOP = "com.example.attentioncoach.monitor.STOP"
@@ -130,6 +156,7 @@ class FocusMonitorService : Service() {
         private const val EXTRA_REENTRY_COOLDOWN_MILLIS = "reentry_cooldown_millis"
         private const val INVALID_TASK_ID = -1L
         private const val ACTIVE_WORK_NOTIFICATION_ID = 4520
+        private const val PRESENCE_TAG = "AC_PresenceV2"
 
         private val DEFAULT_LEISURE_PACKAGES = arrayOf(
             "com.google.android.youtube",

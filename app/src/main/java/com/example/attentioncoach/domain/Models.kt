@@ -54,6 +54,14 @@ enum class ForegroundSource {
     USAGE_STATS
 }
 
+enum class FocusPresence {
+    IN_ATTENTION_COACH,
+    IN_WHITELIST_APP,
+    IN_LAUNCHER,
+    IN_OTHER_APP,
+    UNKNOWN
+}
+
 enum class ReentryReason {
     INACTIVE,
     SELF,
