@@ -140,8 +140,8 @@ This layer must not implement re-entry notification logic yet.
 **Design rules:**
 
 - Accessibility is the primary source.
-- Use `event.packageName` first.
-- Add fallback to `rootInActiveWindow?.packageName`.
+- Prefer `rootInActiveWindow?.packageName` as the primary foreground app signal.
+- Use `event.packageName` only when the root package is missing.
 - If needed, add `windows` fallback with interactive-window retrieval.
 - Store only package name, source, and timestamp.
 - Do not inspect or store screen text.
@@ -207,6 +207,8 @@ Pass condition:
 - Screen-off does not erase the last reliable package.
 
 If this layer fails on real device, stop. Do not implement later layers. Diagnose Accessibility service enablement/config first.
+
+**Layer 1 real-device refinement:** Samsung real-device logs showed that `eventPackage` can be a stale or transient event source, for example launcher events while Attention Coach is still the active root window, or Attention Coach events while launcher is the active root window. Therefore the V2 design uses `rootPackage` first, `eventPackage` second, and `windowPackages` last.
 
 - [ ] **Step 6: Commit**
 

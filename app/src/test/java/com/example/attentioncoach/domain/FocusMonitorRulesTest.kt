@@ -16,10 +16,10 @@ class FocusMonitorRulesTest {
     }
 
     @Test
-    fun foregroundObservationPrefersEventPackage() {
+    fun foregroundObservationPrefersRootPackage() {
         val packageName = ForegroundObservationRules.choosePackage(
-            eventPackage = "com.android.chrome",
-            rootPackage = "com.example.attentioncoach",
+            eventPackage = "com.sec.android.app.launcher",
+            rootPackage = "com.android.chrome",
             windowPackages = listOf("com.google.android.apps.docs")
         )
 
@@ -27,14 +27,14 @@ class FocusMonitorRulesTest {
     }
 
     @Test
-    fun foregroundObservationPrefersRootWhenEventIsSystemUi() {
+    fun foregroundObservationFallsBackToEventPackageWhenRootIsMissing() {
         val packageName = ForegroundObservationRules.choosePackage(
-            eventPackage = "com.android.systemui",
-            rootPackage = "com.example.attentioncoach",
-            windowPackages = listOf("com.sec.android.app.launcher", "com.example.attentioncoach")
+            eventPackage = "com.android.chrome",
+            rootPackage = null,
+            windowPackages = listOf("com.google.android.apps.docs")
         )
 
-        assertEquals("com.example.attentioncoach", packageName)
+        assertEquals("com.android.chrome", packageName)
     }
 
     @Test

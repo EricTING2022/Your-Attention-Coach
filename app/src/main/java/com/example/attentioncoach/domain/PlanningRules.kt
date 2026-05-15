@@ -65,10 +65,7 @@ object ForegroundObservationRules {
     ): String? {
         val cleanRootPackage = rootPackage?.trim()?.takeIf(String::isNotBlank)
         val cleanEventPackage = eventPackage?.trim()?.takeIf(String::isNotBlank)
-        if (cleanEventPackage == "com.android.systemui" && cleanRootPackage != null) {
-            return cleanRootPackage
-        }
-        return sequenceOf(cleanEventPackage, cleanRootPackage)
+        return sequenceOf(cleanRootPackage, cleanEventPackage)
             .plus(windowPackages.asSequence())
             .mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
             .firstOrNull()

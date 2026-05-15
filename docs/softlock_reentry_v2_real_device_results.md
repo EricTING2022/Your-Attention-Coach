@@ -72,3 +72,29 @@ Two refinements were identified from the logs:
 ### Follow-up change
 
 After this test, duplicate foreground observations were throttled to one record per package every 5 seconds, while package changes are still recorded immediately. This reduces noisy logs and repeated SharedPreferences writes without delaying launcher / whitelist / non-whitelist transitions.
+
+## Layer 1 Follow-up Result
+
+Status: Passed with foreground source rule refined.
+
+User-provided logs after duplicate throttling showed:
+
+- Accessibility service connected successfully.
+- Attention Coach was observed as `rootPackage=com.example.attentioncoach`.
+- Launcher was observed as `rootPackage=com.sec.android.app.launcher`.
+- Chrome was observed as `rootPackage=com.android.chrome`.
+- OpenRice was observed as `rootPackage=com.openrice.android`.
+
+The logs also showed transient event-source packages that were not the actual foreground root:
+
+- `eventPackage=com.sec.android.app.launcher` while `rootPackage=com.example.attentioncoach`;
+- `eventPackage=com.example.attentioncoach` while `rootPackage=com.sec.android.app.launcher`;
+- `eventPackage=com.google.android.googlequicksearchbox` while `rootPackage=com.sec.android.app.launcher`.
+
+Updated understanding:
+
+- `eventPackage` is the source of an Accessibility event, not always the current foreground app.
+- `rootInActiveWindow.packageName` is the primary foreground signal for this real device.
+- `eventPackage` should only be used when `rootPackage` is missing.
+
+The foreground selection rule was updated to prefer `rootPackage`, then fall back to `eventPackage`, then to `windowPackages`.
