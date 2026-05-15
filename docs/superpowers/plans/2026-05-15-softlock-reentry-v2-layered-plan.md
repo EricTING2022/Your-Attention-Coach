@@ -287,7 +287,7 @@ git commit -m "feat: classify foreground presence"
 
 **Goal:** While the screen is on, remind only when presence is launcher or non-whitelist app.
 
-**Layer 2 adjustment before implementation:** real-device testing proved that `FocusPresence` is reliable while the screen is on, and System UI / lock-screen events should not be treated as user app switches. Therefore Layer 3 uses only the Layer 2 effective `FocusPresence` and skips screen-on policy when the device is not interactive. Screen-off reminders remain Layer 4 work.
+**Layer 2 adjustment before implementation:** real-device testing proved that `FocusPresence` is reliable while the screen is on, and System UI / lock-screen events should not be treated as user app switches. Therefore Layer 3 uses only the Layer 2 effective `FocusPresence` and skips screen-on policy when the device is not interactive. Screen-off reminders remain Layer 4 work. After Layer 3 smoke testing, the cadence was tuned to `POLL_INTERVAL_MILLIS = 3_000L` and `REENTRY_GRACE_MILLIS = 2_000L` so the first reminder usually appears within about 3-5 seconds while keeping polling moderate.
 
 **Files:**
 
@@ -301,7 +301,7 @@ git commit -m "feat: classify foreground presence"
 - Service polls latest effective `FocusPresence`.
 - If presence is `IN_ATTENTION_COACH`, clear re-entry violation.
 - If presence is `IN_WHITELIST_APP`, clear visible notification but do not count as final acknowledgement.
-- If presence is `IN_LAUNCHER` or `IN_OTHER_APP`, start a 3-second grace and then notify.
+- If presence is `IN_LAUNCHER` or `IN_OTHER_APP`, start a 2-second grace and then notify.
 - Repeated reminders follow the settings notification interval.
 - If presence is `UNKNOWN`, show degraded detection status in logs. Do not hardcode Chrome or assume whitelist.
 

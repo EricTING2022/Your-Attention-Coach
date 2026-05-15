@@ -157,8 +157,8 @@ Policy:
 
 - `IN_ATTENTION_COACH`: clear visible re-entry reminder and reset violation/cooldown state.
 - `IN_WHITELIST_APP`: clear visible re-entry reminder and reset violation/cooldown state.
-- `IN_LAUNCHER`: start a 3-second grace period, then remind; repeat by notification interval.
-- `IN_OTHER_APP`: start a 3-second grace period, then remind; repeat by notification interval.
+- `IN_LAUNCHER`: start a 2-second grace period, then remind; repeat by notification interval.
+- `IN_OTHER_APP`: start a 2-second grace period, then remind; repeat by notification interval.
 - `UNKNOWN`: do not treat as whitelist; log degraded detection and keep existing state.
 
 Screen-off behavior:

@@ -378,7 +378,7 @@ Steps:
 
 Expected result:
 
-- No immediate reminder during the 3-second grace period.
+- No immediate reminder during the 2-second grace period.
 - A re-entry reminder appears after grace.
 - `AC_ReentryV2` shows `presence=IN_LAUNCHER`.
 
@@ -416,7 +416,7 @@ Steps:
 
 Expected result:
 
-- A new 3-second grace period starts.
+- A new 2-second grace period starts.
 - A re-entry reminder appears after grace.
 
 ### S03-6: Non-whitelist App Reminds
@@ -448,8 +448,8 @@ Layer 3 is considered passed when:
 
 - Focus page never triggers a re-entry reminder.
 - Whitelist app never triggers a re-entry reminder.
-- Launcher triggers a reminder after the 3-second grace period.
-- Non-whitelist app triggers a reminder after the 3-second grace period.
+- Launcher triggers a reminder after the 2-second grace period.
+- Non-whitelist app triggers a reminder after the 2-second grace period.
 - Moving from launcher/non-whitelist app to whitelist app clears and suppresses reminders.
 - Moving from whitelist app to launcher/non-whitelist app starts a new grace period and reminds again.
 - Returning to Attention Coach clears the reminder.

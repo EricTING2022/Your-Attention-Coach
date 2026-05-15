@@ -221,7 +221,7 @@ class FocusMonitorRulesTest {
         val decision = PresenceReentryPolicy.screenOnDecision(
             activeWorkBlock = true,
             presence = FocusPresence.IN_LAUNCHER,
-            nowMillis = 12_000L,
+            nowMillis = 11_000L,
             violationStartedAtMillis = 10_000L,
             lastNotificationMillis = null
         )

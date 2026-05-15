@@ -50,10 +50,10 @@ object DateIndicatorRules {
 }
 
 object FocusMonitorCadence {
-    const val POLL_INTERVAL_MILLIS = 5_000L
+    const val POLL_INTERVAL_MILLIS = 3_000L
     const val USAGE_LOOKBACK_MILLIS = 15_000L
     const val FOREGROUND_OBSERVATION_MAX_AGE_MILLIS = 10_000L
-    const val REENTRY_GRACE_MILLIS = 3_000L
+    const val REENTRY_GRACE_MILLIS = 2_000L
     const val REENTRY_COOLDOWN_MILLIS = 30_000L
 }
 
