@@ -27,6 +27,17 @@ class FocusMonitorRulesTest {
     }
 
     @Test
+    fun foregroundObservationPrefersRootWhenEventIsSystemUi() {
+        val packageName = ForegroundObservationRules.choosePackage(
+            eventPackage = "com.android.systemui",
+            rootPackage = "com.example.attentioncoach",
+            windowPackages = listOf("com.sec.android.app.launcher", "com.example.attentioncoach")
+        )
+
+        assertEquals("com.example.attentioncoach", packageName)
+    }
+
+    @Test
     fun foregroundObservationFallsBackToRootPackage() {
         val packageName = ForegroundObservationRules.choosePackage(
             eventPackage = null,
@@ -82,5 +93,42 @@ class FocusMonitorRulesTest {
 
         assertEquals("com.android.chrome", fresh?.packageName)
         assertEquals(ForegroundSource.ACCESSIBILITY, fresh?.source)
+    }
+
+    @Test
+    fun foregroundObservationRecordsPackageChangesImmediately() {
+        assertTrue(
+            ForegroundObservationRules.shouldRecord(
+                lastPackageName = "com.sec.android.app.launcher",
+                lastRecordedAtMillis = 10_000L,
+                newPackageName = "com.android.chrome",
+                nowMillis = 11_000L
+            )
+        )
+    }
+
+    @Test
+    fun foregroundObservationSuppressesRapidDuplicatePackages() {
+        assertEquals(
+            false,
+            ForegroundObservationRules.shouldRecord(
+                lastPackageName = "com.android.chrome",
+                lastRecordedAtMillis = 10_000L,
+                newPackageName = "com.android.chrome",
+                nowMillis = 12_000L
+            )
+        )
+    }
+
+    @Test
+    fun foregroundObservationRecordsDuplicateAfterThrottleWindow() {
+        assertTrue(
+            ForegroundObservationRules.shouldRecord(
+                lastPackageName = "com.android.chrome",
+                lastRecordedAtMillis = 10_000L,
+                newPackageName = "com.android.chrome",
+                nowMillis = 15_000L
+            )
+        )
     }
 }

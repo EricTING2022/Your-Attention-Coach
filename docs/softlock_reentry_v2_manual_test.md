@@ -174,6 +174,7 @@ Steps:
 Expected log evidence:
 
 - `chosenPackage=com.example.attentioncoach` appears, or Attention Coach is otherwise visible as `eventPackage`, `rootPackage`, or a window package.
+- If a transient `eventPackage=com.android.systemui` appears while `rootPackage=com.example.attentioncoach`, the observer should classify the foreground as Attention Coach.
 
 ### S01-2: Whitelist App Foreground
 
@@ -233,5 +234,6 @@ Layer 1 is considered passed only when real-device logs prove all of these:
 - Launcher package can be observed.
 - A non-whitelist app package can be observed.
 - The four states are distinguishable by package.
+- Duplicate logs for the same package are throttled to roughly 5 seconds, but switching to a different package is still recorded immediately.
 
 If `chosenPackage` stays `null`, or if whitelist / launcher / non-whitelist all look the same, stop before Layer 2. The Accessibility observer must be fixed before any re-entry policy is implemented.

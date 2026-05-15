@@ -56,12 +56,19 @@ object FocusMonitorCadence {
 }
 
 object ForegroundObservationRules {
+    const val DUPLICATE_RECORD_THROTTLE_MILLIS = 5_000L
+
     fun choosePackage(
         eventPackage: String?,
         rootPackage: String?,
         windowPackages: List<String>
     ): String? {
-        return sequenceOf(eventPackage, rootPackage)
+        val cleanRootPackage = rootPackage?.trim()?.takeIf(String::isNotBlank)
+        val cleanEventPackage = eventPackage?.trim()?.takeIf(String::isNotBlank)
+        if (cleanEventPackage == "com.android.systemui" && cleanRootPackage != null) {
+            return cleanRootPackage
+        }
+        return sequenceOf(cleanEventPackage, cleanRootPackage)
             .plus(windowPackages.asSequence())
             .mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
             .firstOrNull()
@@ -74,6 +81,17 @@ object ForegroundObservationRules {
     ): ForegroundObservation? {
         if (observation == null) return null
         return observation.takeIf { nowMillis - it.observedAtMillis <= maxAgeMillis }
+    }
+
+    fun shouldRecord(
+        lastPackageName: String?,
+        lastRecordedAtMillis: Long,
+        newPackageName: String,
+        nowMillis: Long,
+        duplicateThrottleMillis: Long = DUPLICATE_RECORD_THROTTLE_MILLIS
+    ): Boolean {
+        return lastPackageName != newPackageName ||
+            nowMillis - lastRecordedAtMillis >= duplicateThrottleMillis
     }
 }
 

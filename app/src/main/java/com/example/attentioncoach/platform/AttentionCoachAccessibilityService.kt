@@ -9,6 +9,8 @@ import com.example.attentioncoach.domain.ForegroundSource
 
 class AttentionCoachAccessibilityService : AccessibilityService() {
     private lateinit var store: ForegroundObservationStore
+    private var lastRecordedPackage: String? = null
+    private var lastRecordedAtMillis: Long = 0L
 
     override fun onCreate() {
         super.onCreate()
@@ -30,13 +32,25 @@ class AttentionCoachAccessibilityService : AccessibilityService() {
             windowPackages = windowPackages
         )
         val nowMillis = System.currentTimeMillis()
+        if (
+            chosenPackage == null ||
+            !ForegroundObservationRules.shouldRecord(
+                lastPackageName = lastRecordedPackage,
+                lastRecordedAtMillis = lastRecordedAtMillis,
+                newPackageName = chosenPackage,
+                nowMillis = nowMillis
+            )
+        ) {
+            return
+        }
         Log.d(
             TAG,
             "eventType=${event?.eventType} eventPackage=$eventPackage " +
                 "rootPackage=$rootPackage windowPackages=$windowPackages " +
                 "chosenPackage=$chosenPackage at=$nowMillis"
         )
-        if (chosenPackage == null) return
+        lastRecordedPackage = chosenPackage
+        lastRecordedAtMillis = nowMillis
         store.save(
             ForegroundObservation(
                 packageName = chosenPackage,
