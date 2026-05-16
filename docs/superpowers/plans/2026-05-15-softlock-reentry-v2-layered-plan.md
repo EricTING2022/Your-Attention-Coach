@@ -421,12 +421,17 @@ git commit -m "feat: add screen-off reentry alarms"
 
 **Goal:** Re-entry reminders route directly back to the focus timer without a separate re-entry page.
 
+**Layer 5 review after Layers 1-4.1:** no state-machine redesign is needed. The V2 presence model remains the only source for safe/unsafe decisions. Layer 5 only changes the final routing target after a re-entry reminder is clicked.
+
 **Files:**
 
 - Modify: `app/src/main/java/com/example/attentioncoach/platform/ReentryNotifier.kt`
-- Optional create: `app/src/main/java/com/example/attentioncoach/platform/ReentryLockscreenActivity.kt`
+- Already created in Layer 4.1: `app/src/main/java/com/example/attentioncoach/platform/ReentryLockscreenActivity.kt`
 - Modify: `app/src/main/java/com/example/attentioncoach/MainActivity.kt`
 - Modify: `app/src/main/java/com/example/attentioncoach/ui/AppShell.kt`
+- Modify: `app/src/main/java/com/example/attentioncoach/ui/FocusScreens.kt`
+- Modify: `app/src/main/java/com/example/attentioncoach/domain/Navigation.kt`
+- Modify: `app/src/test/java/com/example/attentioncoach/domain/NavigationRulesTest.kt`
 
 **Behavior:**
 
@@ -436,15 +441,15 @@ git commit -m "feat: add screen-off reentry alarms"
 - The old Reentry UI is removed from the Compose flow.
 - Notification uses high importance and lockscreen-visible channel.
 
-- [ ] **Step 1: Add navigation tests where possible**
+- [x] **Step 1: Add navigation tests where possible**
 
 Verify re-entry intent maps directly to the focus timer route.
 
-- [ ] **Step 2: Implement notification routing**
+- [x] **Step 2: Implement notification routing**
 
 Do not add extra UI unless needed for lockscreen.
 
-- [ ] **Step 3: Build**
+- [x] **Step 3: Build**
 
 ```powershell
 .\gradlew.bat testDebugUnitTest assembleDebug
@@ -461,11 +466,17 @@ Manual flow:
 5. Tap resume/open.
 6. Confirm one tap returns to focus timer.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add app/src/main/java/com/example/attentioncoach app/src/test docs/softlock_reentry_v2_real_device_results.md
-git commit -m "feat: route reentry reminders to focus timer"
+git commit -m "feat: route reentry directly to focus"
+```
+
+Implementation commit:
+
+```text
+0ee0097 feat: route reentry directly to focus
 ```
 
 ## Layer 6: Cleanup and Report Evidence

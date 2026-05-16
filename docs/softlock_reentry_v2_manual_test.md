@@ -627,3 +627,51 @@ Layer 4.1 is considered passed when:
 - The full-screen route is used at most once per unsafe screen-off violation chain.
 - Focus page / whitelist app screen-off still produce no reminders.
 - Foreground polling pauses while screen-off and resumes on screen-on.
+
+## Layer 5 Manual Test: Direct Re-entry Routing
+
+Layer 5 removes the intermediate re-entry task page. A re-entry reminder is now only a route back to the active focus timer.
+
+### Setup
+
+1. Install the Layer 5 debug APK.
+2. Enable `Foreground detection` in Android Accessibility settings.
+3. Start a focus timer.
+4. Set `Notification interval` to a short value such as `30s`.
+
+### S05-1: Screen-on Banner Opens Focus Timer Directly
+
+Steps:
+
+1. From the focus timer, move to launcher or a non-whitelist app.
+2. Wait for the re-entry notification banner.
+3. Tap the banner.
+
+Expected result:
+
+- Attention Coach opens directly on the focus timer page.
+- No `Resume task` page appears.
+- The focus timer continues from the active session state.
+
+### S05-2: Lockscreen Full-screen Button Opens Focus Timer Directly
+
+Steps:
+
+1. From an unsafe state, turn the screen off.
+2. Wait for the lockscreen / full-screen re-entry reminder.
+3. Tap `Return to focus`.
+
+Expected result:
+
+- Attention Coach opens directly on the focus timer page.
+- No intermediate re-entry task page appears.
+- The focus timer remains active.
+
+### Layer 5 Pass Criteria
+
+Layer 5 is considered passed when:
+
+- Ordinary re-entry notification taps return directly to the focus timer.
+- Lockscreen `Return to focus` returns directly to the focus timer.
+- There is no visible `Resume task`, `Adjust plan`, or `Record reason` re-entry page.
+- Focus, pause, finish, and exit behavior remain unchanged.

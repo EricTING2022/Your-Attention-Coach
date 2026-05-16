@@ -238,12 +238,34 @@ Layer 4.1 addresses these without changing the V2 presence/state machine:
 
 ## Layer 4.1 Result
 
-Status: Pending real-device test.
+Status: Passed by user real-device testing.
 
-Expected result:
+Reported / expected result:
 
 - Unsafe screen-off reminder uses the full-screen route once when Android allows it.
 - The `Return to focus` button opens Attention Coach through the existing re-entry intent.
 - Re-entry intents now route directly to the active focus timer, without showing the old intermediate re-entry task page.
 - Safe screen-off no longer logs repeated 3-second polling checks.
 - Unsafe screen-off repeats are driven by `AC_ReentryAlarmV2: alarm ...` rather than foreground polling.
+
+## Layer 5 Result
+
+Status: Implementation complete; pending real-device UX confirmation.
+
+Layer 5 did not change the V2 safe/unsafe state machine. It only changed the route after a reminder is clicked:
+
+- ordinary notification banner -> `ACTION_REENTRY` -> active focus timer;
+- lockscreen `Return to focus` -> `ACTION_REENTRY` -> active focus timer.
+
+Implementation summary:
+
+- Removed `AppRoute.Reentry`.
+- Removed the Compose `ReentryScreen`.
+- Removed `reentryOpen` state from `AppShell`.
+- Added a navigation unit test proving the route enum no longer contains `Reentry`.
+
+Expected real-device result:
+
+- Tapping a normal re-entry notification opens the active focus timer directly.
+- Tapping lockscreen `Return to focus` opens the active focus timer directly.
+- No intermediate `Resume task` page appears.
