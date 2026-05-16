@@ -91,13 +91,90 @@ This design keeps the app non-blocking: it does not prevent the user from leavin
 - Android Studio
 - Jetpack Compose
 - Material 3
+- Android Architecture Components / ViewModel
+- Kotlin coroutines / Flow
+- Room
+- DataStore Preferences
 - Android foreground service
 - AlarmManager
 - BroadcastReceiver
 - NotificationManager
-- UsageStatsManager
-- SharedPreferences
+- AccessibilityService
 - JUnit 4
+
+---
+
+## Implementation Updates After Initial Submission
+
+The original README and project proposal described the first complete prototype. The current implementation adds two major engineering upgrades while preserving the original product direction: durable local persistence and the second-generation soft-lock re-entry system.
+
+### Update 1: Room and DataStore Persistence
+
+The app now uses a persistent local data layer instead of relying on in-memory demo state.
+
+Implemented behavior:
+
+* Tasks created or edited by the user are saved locally and remain available after app restart.
+* Task reviews are stored separately from the task plan and can be overwritten when the user saves a new review.
+* Settings, including the apps whitelist and notification interval, are stored durably.
+* Active focus session recovery state is stored so the app can resume the focus timer after process recreation instead of treating process death as an implicit exit.
+* The `Seed demo day` action remains available for grading/demo preparation. It replaces the May 5 demo data idempotently, so repeated taps do not create duplicate demo tasks.
+
+Implementation details:
+
+| Area | Implementation | Key Files |
+| --- | --- | --- |
+| Task persistence | Room database with task and review tables | `data/local/AttentionCoachDatabase.kt`, `TaskEntity.kt`, `TaskReviewEntity.kt`, `AttentionCoachDao.kt` |
+| Repository boundary | UI talks to repositories instead of direct storage classes | `data/TaskRepository.kt`, `data/RoomTaskRepository.kt`, `ui/AttentionCoachViewModel.kt` |
+| Domain mapping | Room entities are mapped to domain `PlannedTask` objects | `data/TaskMappers.kt` |
+| Settings persistence | DataStore Preferences store whitelist apps and notification interval | `data/DataStoreSettingsRepository.kt`, `data/DataStoreKeys.kt` |
+| Focus recovery | DataStore persists the active work session | `platform/FocusSessionStore.kt` |
+| Dependency wiring | Application container owns database and repositories | `AppContainer.kt`, `AttentionCoachApplication.kt` |
+
+Design rationale:
+
+* Room is used for structured domain data because tasks and reviews have clear fields, relationships, and query needs.
+* DataStore is used for preferences because settings are small key-value style data and should not be modeled as relational entities.
+* Repository interfaces keep UI code independent from the storage implementation and leave room for future cloud sync or backup support.
+
+### Update 2: Soft-lock Re-entry V2
+
+The soft-lock feature has been rebuilt around a clearer presence state machine and real-device foreground detection.
+
+Implemented behavior:
+
+* During an active focus timer, Attention Coach classifies the user into one of four stable states:
+  * `IN_ATTENTION_COACH`
+  * `IN_WHITELIST_APP`
+  * `IN_LAUNCHER`
+  * `IN_OTHER_APP`
+* `IN_ATTENTION_COACH` and `IN_WHITELIST_APP` are treated as safe states.
+* `IN_LAUNCHER` and `IN_OTHER_APP` are treated as unsafe states and trigger re-entry reminders after a short grace period.
+* The apps whitelist is configurable in Settings and is shared by the focus screen and monitoring service.
+* Screen-off behavior uses the last reliable foreground presence instead of treating Android System UI as a user app.
+* Unsafe screen-off reminders are driven by an `AlarmManager` single-shot chain so reminders can continue while the screen is locked.
+* Safe screen-off states pause foreground polling and resume polling when the screen turns on.
+* The first unsafe screen-off reminder can use a lockscreen/full-screen route when Android allows it.
+* Notification taps and lockscreen `Return to focus` return directly to the active focus timer without an intermediate re-entry page.
+
+Implementation details:
+
+| Area | Implementation | Key Files |
+| --- | --- | --- |
+| Foreground detection | Accessibility observer records the current foreground package | `platform/AttentionCoachAccessibilityService.kt`, `ForegroundObservationStore.kt` |
+| Presence classification | Pure domain rules classify foreground state and preserve last stable presence across System UI / lockscreen events | `domain/PlanningRules.kt` |
+| Screen-on reminders | Foreground service applies presence policy and notification cooldown while the device is interactive | `platform/FocusMonitorService.kt` |
+| Screen-off reminders | Persisted monitor state and broadcast receiver run the AlarmManager reminder chain | `platform/ReentryMonitorStateStore.kt`, `platform/ReentryReminderReceiver.kt` |
+| Notification delivery | High-priority re-entry notifications and lockscreen route | `platform/ReentryNotifier.kt`, `platform/ReentryLockscreenActivity.kt` |
+| Routing | Re-entry intents route directly back to the active focus timer | `MainActivity.kt`, `ui/AppShell.kt` |
+| Verification docs | Layered real-device test plan and results | `docs/softlock_reentry_v2_manual_test.md`, `docs/softlock_reentry_v2_real_device_results.md` |
+
+Design rationale:
+
+* UsageStats alone was not reliable enough on the target real device, so V2 uses Accessibility foreground observation as the primary signal.
+* The state machine is expressed in domain code and unit-tested, while Android services only perform platform integration.
+* Screen-off reminders are handled by alarms rather than continuous polling to reduce unnecessary wakeups.
+* The feature remains a soft lock: it nudges the user back to focus but does not use kiosk mode, device-owner APIs, or hard blocking.
 
 ---
 
@@ -144,6 +221,7 @@ The domain layer contains testable business logic, including:
 * Reminder decision logic
 * Soft-lock re-entry policy
 * Focus timer calculations
+* Foreground presence classification
 
 This keeps important behavior testable without depending directly on Android framework APIs.
 
@@ -154,11 +232,13 @@ The platform layer wraps Android-specific APIs:
 * Exact alarm scheduling
 * Start-time reminder receiver
 * Foreground focus monitor service
-* UsageStats foreground app detection
+* Accessibility-based foreground observation
 * Re-entry notification delivery
+* Screen-off re-entry alarm receiver
 * Installed app querying
 * Needed app launching
-* SharedPreferences-backed reminder state
+* Room database wiring
+* DataStore-backed settings and active focus state
 
 This separation keeps Android framework interaction outside the core domain logic.
 
@@ -212,10 +292,11 @@ Attention Coach uses several Android platform permissions to support reminders a
 | `SCHEDULE_EXACT_ALARM`   | Schedule accurate start-time reminders                                  |
 | `USE_FULL_SCREEN_INTENT` | Show lockscreen / full-screen reminder routes where supported           |
 | `PACKAGE_USAGE_STATS`    | Detect the current foreground app during an active focus block          |
+| Accessibility service    | Observe the foreground app for soft-lock re-entry decisions             |
 | Foreground service       | Keep focus monitoring active while the user is outside Attention Coach  |
 | Package queries          | Display launchable apps for whitelist configuration                     |
 
-Some permissions, such as Usage Access and exact alarm access, may require manual approval in Android system settings depending on device and Android version.
+Some permissions and capabilities, such as Accessibility foreground detection, Usage Access fallback, notification permission, exact alarm access, and full-screen notification display, may require manual approval in Android system settings depending on device and Android version.
 
 ---
 
@@ -293,30 +374,16 @@ The following flows are recommended for manual verification:
 | Re-entry            | Open a non-whitelisted app during focus                              | Re-entry notification appears after the grace period    |
 | Return to app       | Open Attention Coach after re-entry reminder                         | Re-entry state is cleared and notification disappears   |
 | Settings            | Change notification interval                                         | Later re-entry reminders follow the selected interval   |
+| Persistence         | Restart the app after editing tasks/settings                         | Tasks, reviews, whitelist, interval, and active focus state persist |
 
 ---
 
 ## Current Limitations
 
-* Task data is currently stored in app memory and seeded demo data; user-created tasks are not persisted through process death.
-* There is no Room, Firebase, or backend integration.
-* Settings and whitelist state are lightweight and should be moved to a durable persistence layer in a production version.
-* Usage Access permission flow depends on Android system settings.
+* There is no Firebase, remote API, account login, or cloud sync layer.
+* Accessibility, exact-alarm, notification, and full-screen reminder behavior depend on Android system settings and device policy.
 * Full-screen reminder behavior may vary by Android version and device policy.
 * The project currently focuses on unit tests and manual verification rather than full Compose UI instrumentation tests.
-
----
-
-## Future Improvements
-
-* Add Room database persistence for tasks, reviews, settings, and reminder state.
-* Introduce a ViewModel and Repository layer for lifecycle-safe state management.
-* Add DataStore for settings persistence.
-* Add a dedicated Usage Access permission education screen.
-* Add Compose UI tests for key user flows.
-* Add exportable weekly insight reports.
-* Improve long-term analytics for planning accuracy and distraction patterns.
-* Add cloud sync or account-based backup if multi-device support is required.
 
 ---
 
@@ -332,3 +399,20 @@ Attention Coach is intentionally more active than a passive Pomodoro timer. Inst
 * and weekly reflection.
 
 The soft-lock design is intentionally non-invasive. It does not block other apps or enforce device-level restrictions. Instead, it uses Android notifications and foreground monitoring to encourage the user to return to the intended focus task while still allowing legitimate temporary app switching through the whitelist.
+
+---
+
+# Future Improvements
+
+The following items are intentionally placed at the end of the README as the project roadmap. Completed items are kept with strikethrough text to show how the implementation has advanced beyond the first submitted version.
+
+* ~~Add Room database persistence for tasks and reviews.~~ Implemented with `AttentionCoachDatabase`, `TaskEntity`, `TaskReviewEntity`, and `RoomTaskRepository`.
+* ~~Add DataStore for settings persistence.~~ Implemented for apps whitelist and notification interval.
+* ~~Persist active focus session recovery state.~~ Implemented with `FocusSessionStore`.
+* ~~Improve soft-lock re-entry reliability.~~ Implemented in Soft-lock Re-entry V2 using Accessibility foreground observation, presence classification, screen-off alarm reminders, and direct focus routing.
+* ~~Route re-entry reminders directly back to the focus timer.~~ Implemented for normal notifications and lockscreen/full-screen reminders.
+* Add a dedicated permission education flow for Accessibility, notification, exact alarm, and full-screen reminder capabilities.
+* Add Compose UI instrumentation tests for key user flows.
+* Add exportable weekly insight reports.
+* Improve long-term analytics for planning accuracy and distraction patterns.
+* Add cloud sync or account-based backup if multi-device support is required.
