@@ -19,8 +19,8 @@ Device: `Pixel_7` AVD, `emulator-5554`
 - Exit opened one confirmation dialog.
 - Cancel returned to Work.
 - Continue returned to Today and stopped the foreground service.
-- ACTION_REENTRY deep link opened the Re-entry screen for the provided task id.
-- Resume task returned from Re-entry to Work.
+- ACTION_REENTRY deep link returns directly to the active Work screen for the provided task id.
+- The old intermediate Re-entry screen is no longer part of the active reminder flow.
 - With Work active, launching `com.google.android.youtube` produced a re-entry notification:
   - title `Still your focus block?`
   - text `You planned to work on Android project skeleton. Tap to return.`

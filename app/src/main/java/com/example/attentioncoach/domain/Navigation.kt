@@ -12,7 +12,5 @@ enum class AppRoute(val hidesBottomNavigation: Boolean) {
     Settings(false),
     TaskDetail(true),
     Work(true),
-    Pause(true),
-    Reentry(true)
+    Pause(true)
 }
-

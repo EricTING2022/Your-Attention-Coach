@@ -586,7 +586,8 @@ Expected result:
 
 - The phone wakes or shows the lockscreen re-entry UI when Android allows full-screen reminder display.
 - The lockscreen UI contains a `Return to focus` button.
-- Tapping `Return to focus` opens Attention Coach through the normal re-entry intent.
+- Tapping `Return to focus` opens Attention Coach directly on the active focus timer.
+- No intermediate `Resume task` / re-entry task page appears.
 - Later reminders in the same violation chain may be normal high-priority notifications instead of full-screen.
 
 ### S04.1-2: Safe Screen Off Does Not Poll Repeatedly

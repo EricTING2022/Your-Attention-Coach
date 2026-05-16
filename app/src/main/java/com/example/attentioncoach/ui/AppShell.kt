@@ -86,7 +86,6 @@ fun AttentionCoachApp(
     var selectedTaskId by remember { mutableStateOf<Long?>(null) }
     var draftTask by remember { mutableStateOf<PlannedTask?>(null) }
     var pendingStartTask by remember { mutableStateOf<PlannedTask?>(null) }
-    var reentryOpen by remember { mutableStateOf(false) }
     var showAlarmPermissionPrompt by remember { mutableStateOf(false) }
     var activeDueReminderIds by remember { mutableStateOf(startReminderStore.activeDueIds()) }
     val selectedTask = selectedTaskId?.let { id -> tasks.firstOrNull { it.id == id } }
@@ -148,7 +147,6 @@ fun AttentionCoachApp(
             }
             selectedTaskId = null
             destination = TopLevelDestination.TASKS
-            reentryOpen = true
         }
         onReentryConsumed()
     }
@@ -198,22 +196,7 @@ fun AttentionCoachApp(
 
     val currentWork = activeWork
     if (activeWorkTask != null && currentWork != null) {
-        if (reentryOpen) {
-            ReentryScreen(
-                task = activeWorkTask,
-                onResume = { reentryOpen = false },
-                onAdjustPlan = {
-                    reentryOpen = false
-                    viewModel.clearActiveWork()
-                    selectedTaskId = activeWorkTask.id
-                },
-                onRecordReason = {
-                    reentryOpen = false
-                    viewModel.clearActiveWork()
-                    selectedTaskId = activeWorkTask.id
-                }
-            )
-        } else if (currentWork.isPaused) {
+        if (currentWork.isPaused) {
             PauseScreen(
                 activeWork = currentWork,
                 onResume = { viewModel.saveActiveWork(currentWork.resumeAt(System.currentTimeMillis())) }
@@ -223,7 +206,6 @@ fun AttentionCoachApp(
                 task = activeWorkTask,
                 activeWork = currentWork,
                 onPause = {
-                    reentryOpen = false
                     viewModel.saveActiveWork(currentWork.pauseAt(System.currentTimeMillis()))
                 },
                 onFinish = {
@@ -237,13 +219,11 @@ fun AttentionCoachApp(
                         viewModel.clearActiveWork()
                         releaseDeferredStartReminders(tasks)
                     }
-                    reentryOpen = false
                     destination = TopLevelDestination.TASKS
                 },
                 onExit = {
                     viewModel.clearActiveWork()
                     releaseDeferredStartReminders(tasks)
-                    reentryOpen = false
                     destination = TopLevelDestination.TASKS
                 },
                 neededApps = appSettings.neededApps,
@@ -333,7 +313,6 @@ fun AttentionCoachApp(
                 viewModel.deleteTask(taskId)
                 if (activeWork?.taskId == taskId) {
                     viewModel.clearActiveWork()
-                    reentryOpen = false
                 }
                 selectedTaskId = null
                 draftTask = null

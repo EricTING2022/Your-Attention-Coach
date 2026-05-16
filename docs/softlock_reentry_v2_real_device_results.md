@@ -244,5 +244,6 @@ Expected result:
 
 - Unsafe screen-off reminder uses the full-screen route once when Android allows it.
 - The `Return to focus` button opens Attention Coach through the existing re-entry intent.
+- Re-entry intents now route directly to the active focus timer, without showing the old intermediate re-entry task page.
 - Safe screen-off no longer logs repeated 3-second polling checks.
 - Unsafe screen-off repeats are driven by `AC_ReentryAlarmV2: alarm ...` rather than foreground polling.

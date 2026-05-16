@@ -433,11 +433,12 @@ git commit -m "feat: add screen-off reentry alarms"
 - Notification tap opens Attention Coach and resumes the active focus timer.
 - Full-screen/lockscreen reminder button opens the focus timer with one tap.
 - The old Reentry page should not be routed to during normal use.
+- The old Reentry UI is removed from the Compose flow.
 - Notification uses high importance and lockscreen-visible channel.
 
 - [ ] **Step 1: Add navigation tests where possible**
 
-Verify re-entry intent maps to focus timer route.
+Verify re-entry intent maps directly to the focus timer route.
 
 - [ ] **Step 2: Implement notification routing**
 

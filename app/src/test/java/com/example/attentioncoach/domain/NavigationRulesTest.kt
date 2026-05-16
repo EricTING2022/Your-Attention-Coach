@@ -18,6 +18,13 @@ class NavigationRulesTest {
         assertTrue(AppRoute.TaskDetail.hidesBottomNavigation)
         assertTrue(AppRoute.Work.hidesBottomNavigation)
         assertTrue(AppRoute.Pause.hidesBottomNavigation)
-        assertTrue(AppRoute.Reentry.hidesBottomNavigation)
+    }
+
+    @Test
+    fun reentryRouteIsRemovedBecauseNotificationsReturnDirectlyToFocus() {
+        assertEquals(
+            listOf("Today", "Insights", "Settings", "TaskDetail", "Work", "Pause"),
+            AppRoute.entries.map { it.name }
+        )
     }
 }
