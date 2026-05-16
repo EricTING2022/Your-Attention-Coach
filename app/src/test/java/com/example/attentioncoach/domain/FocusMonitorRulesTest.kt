@@ -408,6 +408,18 @@ class FocusMonitorRulesTest {
     }
 
     @Test
+    fun monitorLoopPausesWhileScreenIsOff() {
+        assertTrue(FocusMonitorLoopPolicy.shouldPausePolling(deviceInteractive = false))
+        assertFalse(FocusMonitorLoopPolicy.shouldPausePolling(deviceInteractive = true))
+    }
+
+    @Test
+    fun screenOffReentryUsesFullScreenOnlyOncePerViolation() {
+        assertTrue(ReentryFullscreenPolicy.shouldUseFullScreen(screenOffFullScreenAlreadyShown = false))
+        assertFalse(ReentryFullscreenPolicy.shouldUseFullScreen(screenOffFullScreenAlreadyShown = true))
+    }
+
+    @Test
     fun presenceClassifierMarksStaleObservationUnknown() {
         val presence = ForegroundPresenceClassifier.classify(
             attentionCoachInForeground = false,

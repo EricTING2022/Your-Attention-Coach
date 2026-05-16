@@ -37,6 +37,13 @@
             android:showWhenLocked="true"
             android:theme="@style/Theme.AttentionCoach"
             android:turnScreenOn="true" />
+        <activity
+            android:name=".platform.ReentryLockscreenActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:theme="@style/Theme.AttentionCoach"
+            android:turnScreenOn="true" />
         <service
             android:name=".platform.FocusMonitorService"
             android:exported="false"

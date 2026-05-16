@@ -212,3 +212,37 @@ Expected log shape:
 AC_ReentryAlarmV2: screenOff presence=<presence> reason=<reason> schedule=<true|false> clear=<true|false> delay=<millis> violationStarted=<millis|null> lastNotification=<millis|null>
 AC_ReentryAlarmV2: alarm presence=<presence> reason=<reason> delay=<millis> task=<taskId>
 ```
+
+## Layer 4 Result Update
+
+Status: Passed by user real-device testing.
+
+Reported result:
+
+- Screen off from focus page does not remind.
+- Screen off from whitelist app does not remind.
+- Screen off from launcher reminds and repeats by interval.
+- Screen off from non-whitelist app reminds and repeats by interval.
+
+Follow-up observation:
+
+- In an unsafe screen-off state, the reminder notification was delivered, but it did not surface as a lockscreen full-screen reminder on the test device.
+- Safe screen-off still produced repeated screen-off diagnostic logs every poll cycle, for example repeated `presence=IN_ATTENTION_COACH reason=SELF` lines.
+
+Layer 4.1 addresses these without changing the V2 presence/state machine:
+
+- add a lockscreen `ReentryLockscreenActivity` route for the first unsafe screen-off reminder in a violation chain;
+- pause normal foreground polling while the screen is off;
+- resume polling on `ACTION_SCREEN_ON`;
+- keep the AlarmManager chain responsible for unsafe screen-off repeats.
+
+## Layer 4.1 Result
+
+Status: Pending real-device test.
+
+Expected result:
+
+- Unsafe screen-off reminder uses the full-screen route once when Android allows it.
+- The `Return to focus` button opens Attention Coach through the existing re-entry intent.
+- Safe screen-off no longer logs repeated 3-second polling checks.
+- Unsafe screen-off repeats are driven by `AC_ReentryAlarmV2: alarm ...` rather than foreground polling.

@@ -555,3 +555,74 @@ Layer 4 is considered passed when:
 - Screen off from non-whitelist app reminds and repeats by interval.
 - Returning to Attention Coach cancels the visible reminder and pending alarm.
 - Lock-screen / System UI events do not create a new violation by themselves.
+
+## Layer 4.1 Manual Test: Lockscreen Full-screen Route And Paused Screen-off Polling
+
+Layer 4.1 keeps the Layer 4 state machine unchanged, but improves two platform details:
+
+- the first screen-off unsafe reminder may use a lockscreen full-screen route;
+- normal foreground polling pauses while the screen is off and resumes after screen-on.
+
+### Log Capture
+
+Use:
+
+```powershell
+adb logcat -c
+adb logcat -v time -s AC_ForegroundV2 AC_PresenceV2 AC_ReentryV2 AC_ReentryAlarmV2
+```
+
+### S04.1-1: Unsafe Screen Off Shows Full-screen Reminder Once
+
+Steps:
+
+1. Start a focus timer.
+2. Move to launcher or a non-whitelist app.
+3. Wait until the unsafe state has been detected.
+4. Turn the screen off.
+5. Wait for the next re-entry reminder.
+
+Expected result:
+
+- The phone wakes or shows the lockscreen re-entry UI when Android allows full-screen reminder display.
+- The lockscreen UI contains a `Return to focus` button.
+- Tapping `Return to focus` opens Attention Coach through the normal re-entry intent.
+- Later reminders in the same violation chain may be normal high-priority notifications instead of full-screen.
+
+### S04.1-2: Safe Screen Off Does Not Poll Repeatedly
+
+Steps:
+
+1. Start a focus timer and stay on the focus timer page.
+2. Turn the screen off.
+3. Keep logcat running for at least 15 seconds.
+
+Expected result:
+
+- No repeated `AC_PresenceV2` / `AC_ReentryAlarmV2: screenOff ... reason=SELF` logs appear every poll cycle.
+- No re-entry reminder appears.
+- Screen-on resumes foreground monitoring.
+
+### S04.1-3: Unsafe Screen Off Uses Alarm Chain, Not Polling
+
+Steps:
+
+1. Start a focus timer.
+2. Move to launcher or a non-whitelist app.
+3. Turn the screen off.
+4. Keep logcat running through at least one reminder interval.
+
+Expected result:
+
+- Screen-off reminders are driven by `AC_ReentryAlarmV2: alarm ...` logs.
+- Regular foreground polling does not continue every 3 seconds while the screen is off.
+- Re-entry reminders continue at the configured notification interval until the user returns to Attention Coach.
+
+### Layer 4.1 Pass Criteria
+
+Layer 4.1 is considered passed when:
+
+- Unsafe screen-off reminders can surface through the lockscreen full-screen route on the test device.
+- The full-screen route is used at most once per unsafe screen-off violation chain.
+- Focus page / whitelist app screen-off still produce no reminders.
+- Foreground polling pauses while screen-off and resumes on screen-on.

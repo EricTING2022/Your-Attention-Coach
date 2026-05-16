@@ -11,7 +11,8 @@ data class ReentryMonitorState(
     val presence: FocusPresence,
     val violationStartedAtMillis: Long?,
     val lastNotificationMillis: Long?,
-    val reentryCooldownMillis: Long
+    val reentryCooldownMillis: Long,
+    val screenOffFullScreenShownForViolation: Boolean = false
 )
 
 class ReentryMonitorStateStore(
@@ -36,7 +37,8 @@ class ReentryMonitorStateStore(
             presence = presence,
             violationStartedAtMillis = nullableLong(KEY_VIOLATION_STARTED_AT),
             lastNotificationMillis = nullableLong(KEY_LAST_NOTIFICATION_AT),
-            reentryCooldownMillis = preferences.getLong(KEY_REENTRY_COOLDOWN_MILLIS, DEFAULT_REENTRY_COOLDOWN_MILLIS)
+            reentryCooldownMillis = preferences.getLong(KEY_REENTRY_COOLDOWN_MILLIS, DEFAULT_REENTRY_COOLDOWN_MILLIS),
+            screenOffFullScreenShownForViolation = preferences.getBoolean(KEY_SCREEN_OFF_FULL_SCREEN_SHOWN, false)
         )
     }
 
@@ -49,6 +51,7 @@ class ReentryMonitorStateStore(
             .putNullableLong(KEY_VIOLATION_STARTED_AT, state.violationStartedAtMillis)
             .putNullableLong(KEY_LAST_NOTIFICATION_AT, state.lastNotificationMillis)
             .putLong(KEY_REENTRY_COOLDOWN_MILLIS, state.reentryCooldownMillis)
+            .putBoolean(KEY_SCREEN_OFF_FULL_SCREEN_SHOWN, state.screenOffFullScreenShownForViolation)
             .apply()
     }
 
@@ -74,6 +77,7 @@ class ReentryMonitorStateStore(
         const val KEY_VIOLATION_STARTED_AT = "violation_started_at"
         const val KEY_LAST_NOTIFICATION_AT = "last_notification_at"
         const val KEY_REENTRY_COOLDOWN_MILLIS = "reentry_cooldown_millis"
+        const val KEY_SCREEN_OFF_FULL_SCREEN_SHOWN = "screen_off_full_screen_shown"
         const val DEFAULT_REENTRY_COOLDOWN_MILLIS = 30_000L
     }
 }

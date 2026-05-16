@@ -1,8 +1,10 @@
 package com.example.attentioncoach.platform
 
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -13,6 +15,7 @@ import com.example.attentioncoach.domain.FocusMonitorCadence
 import com.example.attentioncoach.domain.ForegroundPresenceClassifier
 import com.example.attentioncoach.domain.ForegroundPresenceMemory
 import com.example.attentioncoach.domain.FocusPresence
+import com.example.attentioncoach.domain.FocusMonitorLoopPolicy
 import com.example.attentioncoach.domain.PlannedTask
 import com.example.attentioncoach.domain.PresenceReentryPolicy
 import com.example.attentioncoach.domain.ReentryReason
@@ -29,11 +32,33 @@ class FocusMonitorService : Service() {
     private var violationStartedAtMillis: Long? = null
     private var lastStablePresence: FocusPresence? = null
     private var lastScheduledScreenOffAtMillis: Long? = null
+    private var monitorPollingPausedForScreenOff = false
 
     private val monitorTick = object : Runnable {
         override fun run() {
+            if (monitorPollingPausedForScreenOff) return
             scanForegroundApp()
-            handler.postDelayed(this, FocusMonitorCadence.POLL_INTERVAL_MILLIS)
+            if (!monitorPollingPausedForScreenOff) {
+                handler.postDelayed(this, FocusMonitorCadence.POLL_INTERVAL_MILLIS)
+            }
+        }
+    }
+
+    private val screenStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    if (session != null) {
+                        handler.removeCallbacks(monitorTick)
+                        scanForegroundApp()
+                    }
+                }
+                Intent.ACTION_SCREEN_ON -> {
+                    if (session != null) {
+                        resumeMonitorPolling()
+                    }
+                }
+            }
         }
     }
 
@@ -44,6 +69,16 @@ class FocusMonitorService : Service() {
         reentryMonitorStateStore = ReentryMonitorStateStore(this)
         notifier = ReentryNotifier(this)
         notifier.ensureChannels()
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_SCREEN_ON)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(screenStateReceiver, filter, RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(screenStateReceiver, filter)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -57,6 +92,7 @@ class FocusMonitorService : Service() {
 
     override fun onDestroy() {
         handler.removeCallbacks(monitorTick)
+        runCatching { unregisterReceiver(screenStateReceiver) }
         super.onDestroy()
     }
 
@@ -74,19 +110,19 @@ class FocusMonitorService : Service() {
             taskId = taskId,
             taskTitle = taskTitle,
             neededPackages = intent.getStringArrayExtra(EXTRA_NEEDED_PACKAGES)?.toSet().orEmpty(),
-                leisurePackages = intent.getStringArrayExtra(EXTRA_LEISURE_PACKAGES)?.toSet().orEmpty(),
-                reentryCooldownMillis = intent.getLongExtra(
-                    EXTRA_REENTRY_COOLDOWN_MILLIS,
-                    FocusMonitorCadence.REENTRY_COOLDOWN_MILLIS
-                )
+            leisurePackages = intent.getStringArrayExtra(EXTRA_LEISURE_PACKAGES)?.toSet().orEmpty(),
+            reentryCooldownMillis = intent.getLongExtra(
+                EXTRA_REENTRY_COOLDOWN_MILLIS,
+                FocusMonitorCadence.REENTRY_COOLDOWN_MILLIS
+            )
         )
         lastNotificationMillis = null
         violationStartedAtMillis = null
         lastStablePresence = null
         lastScheduledScreenOffAtMillis = null
+        monitorPollingPausedForScreenOff = false
         startForeground(ACTIVE_WORK_NOTIFICATION_ID, notifier.buildActiveWorkNotification(taskId, taskTitle))
-        handler.removeCallbacks(monitorTick)
-        handler.post(monitorTick)
+        resumeMonitorPolling()
     }
 
     private fun stopMonitoring() {
@@ -113,8 +149,14 @@ class FocusMonitorService : Service() {
         if (session?.taskId == taskId) {
             lastNotificationMillis = null
             violationStartedAtMillis = null
+            reentryMonitorStateStore.clear()
             ReentryReminderReceiver.cancel(this)
             notifier.clearReentryBanner()
+            if (isDeviceInteractive()) {
+                resumeMonitorPolling()
+            } else {
+                monitorPollingPausedForScreenOff = false
+            }
         }
         if (session == null) {
             stopSelf()
@@ -128,6 +170,9 @@ class FocusMonitorService : Service() {
         persistMonitorState(activeSession, presence)
         if (!isDeviceInteractive()) {
             handleScreenOff(activeSession, presence, nowMillis)
+            if (FocusMonitorLoopPolicy.shouldPausePolling(deviceInteractive = false)) {
+                pauseMonitorPollingForScreenOff()
+            }
             return
         }
         ReentryReminderReceiver.cancel(this)
@@ -150,6 +195,7 @@ class FocusMonitorService : Service() {
         )
         if (decision.shouldClearNotification) {
             notifier.clearReentryBanner()
+            reentryMonitorStateStore.clear()
         }
         if (decision.shouldNotify) {
             notifier.showReentryBanner(activeSession.taskId, activeSession.taskTitle)
@@ -183,6 +229,7 @@ class FocusMonitorService : Service() {
             ReentryReminderReceiver.cancel(this)
             lastScheduledScreenOffAtMillis = null
             notifier.clearReentryBanner()
+            reentryMonitorStateStore.clear()
         } else if (decision.shouldScheduleAlarm) {
             val triggerAtMillis = screenOffTriggerAtMillis(decision.reason, decision.delayMillis)
             if (lastScheduledScreenOffAtMillis != triggerAtMillis) {
@@ -201,6 +248,17 @@ class FocusMonitorService : Service() {
                 (lastNotificationMillis ?: System.currentTimeMillis()) + (session?.reentryCooldownMillis ?: FocusMonitorCadence.REENTRY_COOLDOWN_MILLIS)
             else -> System.currentTimeMillis() + delayMillis
         }
+    }
+
+    private fun resumeMonitorPolling() {
+        monitorPollingPausedForScreenOff = false
+        handler.removeCallbacks(monitorTick)
+        handler.post(monitorTick)
+    }
+
+    private fun pauseMonitorPollingForScreenOff() {
+        monitorPollingPausedForScreenOff = true
+        handler.removeCallbacks(monitorTick)
     }
 
     private fun resolvePresence(activeSession: MonitorSession, nowMillis: Long): FocusPresence {
@@ -247,7 +305,10 @@ class FocusMonitorService : Service() {
                 presence = presence,
                 violationStartedAtMillis = violationStartedAtMillis,
                 lastNotificationMillis = lastNotificationMillis,
-                reentryCooldownMillis = activeSession.reentryCooldownMillis
+                reentryCooldownMillis = activeSession.reentryCooldownMillis,
+                screenOffFullScreenShownForViolation = reentryMonitorStateStore.read()
+                    ?.screenOffFullScreenShownForViolation
+                    ?: false
             )
         )
     }

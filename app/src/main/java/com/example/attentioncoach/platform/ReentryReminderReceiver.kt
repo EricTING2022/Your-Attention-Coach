@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.example.attentioncoach.domain.ScreenOffReentryPolicy
+import com.example.attentioncoach.domain.ReentryFullscreenPolicy
 
 class ReentryReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -43,10 +44,18 @@ class ReentryReminderReceiver : BroadcastReceiver() {
             return
         }
         if (decision.delayMillis <= 0L) {
-            ReentryNotifier(context).showReentryBanner(state.taskId, state.taskTitle)
+            val useFullScreen = ReentryFullscreenPolicy.shouldUseFullScreen(
+                screenOffFullScreenAlreadyShown = state.screenOffFullScreenShownForViolation
+            )
+            ReentryNotifier(context).showReentryBanner(
+                taskId = state.taskId,
+                taskTitle = state.taskTitle,
+                useFullScreen = useFullScreen
+            )
             val updated = state.copy(
                 violationStartedAtMillis = decision.nextViolationStartedAtMillis,
-                lastNotificationMillis = decision.nextLastNotificationMillis ?: nowMillis
+                lastNotificationMillis = decision.nextLastNotificationMillis ?: nowMillis,
+                screenOffFullScreenShownForViolation = state.screenOffFullScreenShownForViolation || useFullScreen
             )
             store.save(updated)
             schedule(

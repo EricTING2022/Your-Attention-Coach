@@ -57,6 +57,18 @@ object FocusMonitorCadence {
     const val REENTRY_COOLDOWN_MILLIS = 30_000L
 }
 
+object FocusMonitorLoopPolicy {
+    fun shouldPausePolling(deviceInteractive: Boolean): Boolean {
+        return !deviceInteractive
+    }
+}
+
+object ReentryFullscreenPolicy {
+    fun shouldUseFullScreen(screenOffFullScreenAlreadyShown: Boolean): Boolean {
+        return !screenOffFullScreenAlreadyShown
+    }
+}
+
 object ForegroundObservationRules {
     const val DUPLICATE_RECORD_THROTTLE_MILLIS = 5_000L
 

@@ -545,6 +545,29 @@ The feature is considered ready only when:
 - Exact alarm behavior can vary if the user denies exact alarm capability.
 - If Accessibility cannot produce package names on the real device even with window-content retrieval, full softlock accuracy is not feasible for a normal app without stronger device-management privileges.
 
+## Layer 4.1 Adjustment: Lockscreen Route And Screen-off Polling Pause
+
+Layer 4 passed the state-machine tests, but real-device testing showed two platform-level follow-ups:
+
+- unsafe screen-off reminders were delivered as notifications, but did not surface as a lockscreen full-screen route;
+- safe screen-off still allowed the service polling loop to wake every poll interval and clear the safe state repeatedly.
+
+Minimal implementation direction:
+
+- keep the V2 `FocusPresence` state machine unchanged;
+- reuse the V1-style `ReentryLockscreenActivity` only as a lockscreen route;
+- add `setFullScreenIntent(...)` only for the first unsafe screen-off reminder in a violation chain;
+- keep later repeats as normal high-priority notifications;
+- pause the `FocusMonitorService` polling loop while screen-off;
+- use the existing AlarmManager chain for unsafe screen-off repeats;
+- resume polling on `ACTION_SCREEN_ON`.
+
+Verification:
+
+- `FocusMonitorLoopPolicy.shouldPausePolling(false)` is unit-tested;
+- `ReentryFullscreenPolicy.shouldUseFullScreen(...)` is unit-tested;
+- full behavior still requires real-device lockscreen testing because Android/OEM full-screen notification policy is device-dependent.
+
 ## Implementation Discipline
 
 - One layer per implementation round.
